@@ -13,7 +13,7 @@ import {
 // "trendy"는 을지로3가 힙지로 반경 확장에 맞춰 새로 추가한 20대 트렌드 필터
 // (관리자가 /admin에서 is_trendy를 켠 장소만 모아 보여줌).
 const FOOD_FILTERS: { value: FoodFilter; label: string }[] = [
-  { value: "lunch", label: "🍚 든든한 데일리 점심" },
+  { value: "lunch", label: "🍚 데일리 점심" },
   { value: "trendy", label: "🌮 힙지로·트렌드" },
   { value: "client", label: "👔 룸/접대" },
   { value: "dinner", label: "🍺 저녁/회식" },

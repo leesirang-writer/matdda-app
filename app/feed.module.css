@@ -274,6 +274,35 @@
   font-weight: 700;
 }
 
+.filterItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mealWeightChips {
+  display: flex;
+  gap: 6px;
+  padding-left: 2px;
+}
+.chip {
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.chipActive {
+  composes: chip;
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+  color: #fff;
+}
+
 /* ---------- 메인 콘텐츠 ---------- */
 .main {
   flex: 1;
@@ -513,4 +542,52 @@
 }
 .emptyState p {
   margin: 0 0 4px;
+}
+
+.emptyStateCard {
+  padding: 56px 24px;
+  text-align: center;
+  background: var(--surface-card);
+  border: 1px dashed var(--border-subtle-strong);
+  border-radius: 16px;
+}
+.emptyStateIcon {
+  font-size: 36px;
+  line-height: 1;
+  margin-bottom: 14px;
+}
+.emptyStateTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 20px;
+}
+.emptyStateActions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.emptyStateBtn {
+  border: 1px solid var(--accent-purple);
+  background: var(--accent-purple);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+.emptyStateBtn:hover {
+  background: var(--accent-purple-dark);
+}
+.emptyStateBtnGhost {
+  composes: emptyStateBtn;
+  background: #fff;
+  color: var(--accent-purple);
+}
+.emptyStateBtnGhost:hover {
+  background: var(--accent-purple-soft);
 }

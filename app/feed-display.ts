@@ -131,3 +131,48 @@ export function thumbnailFor(place: FeedPlace): string {
 export function trendyBadgeLabel(place: FeedPlace): string {
   return place.place_type === "cafe" ? "🔥 20대 인기" : "🌮 웨이팅 핫플";
 }
+
+// 카카오 원본 카테고리 문자열의 세그먼트 순서 때문에 simplifyCategory가 사람이
+// 보기에 어색한 대표 분류를 뽑아내는 곳들을 이름으로 직접 보정한다 (예: "가까운빵"은
+// 원본이 "음식점 > 간식 > 베이커리" 순이라 simplifyCategory가 "간식"을 반환함).
+// DB의 category 컬럼 자체를 바꾸지 않고 표시 계층에서만 바로잡는 가벼운 방법.
+const CATEGORY_OVERRIDES: Record<string, string> = {
+  가까운빵: "브런치/베이커리",
+};
+
+/** simplifyCategory에 이름 기반 보정(CATEGORY_OVERRIDES)까지 적용한 최종 배지 문구. */
+export function displayCategory(place: Pick<FeedPlace, "name" | "category">): string {
+  return CATEGORY_OVERRIDES[place.name] ?? simplifyCategory(place.category);
+}
+
+export type MealWeight = "light" | "hearty";
+
+// '데일리 점심' 안에서만 쓰는 가볍게(간단한 한 끼) / 든든하게(포만감 있는 한 끼)
+// 서브 필터 분류 키워드. displayCategory(이름 보정 포함)와 원본 category 문자열을
+// 둘 다 검사해서, 이름 보정만 받은 곳(예: 가까운빵)도 바로 "가볍게"에 걸리게 한다.
+const LIGHT_MEAL_KEYWORDS = [
+  "샌드위치", "샐러드", "브런치", "토스트", "김밥", "베이커리", "포케", "델리",
+];
+const HEARTY_MEAL_KEYWORDS = [
+  "한식", "국밥", "찌개", "탕", "전골", "돈까스", "돈가스",
+  "고기", "구이", "삼겹살", "갈비", "육류", "곱창", "국수", "우동",
+];
+
+/** 어느 쪽 키워드에도 안 걸리면 null(미분류) — 서브 필터가 켜져 있으면 목록에서 빠진다. */
+export function mealWeightFor(place: Pick<FeedPlace, "name" | "category">): MealWeight | null {
+  const haystack = `${displayCategory(place)} ${place.category ?? ""}`;
+  if (LIGHT_MEAL_KEYWORDS.some((k) => haystack.includes(k))) return "light";
+  if (HEARTY_MEAL_KEYWORDS.some((k) => haystack.includes(k))) return "hearty";
+  return null;
+}
+
+// next/image가 원격 썸네일 로딩에 실패했을 때 보여줄 로컬 fallback. 네트워크 요청
+//없이 즉시 렌더되는 data: URL이라 remotePatterns 설정과 무관하게 항상 동작한다.
+export const IMAGE_FALLBACK_PLACEHOLDER =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='280'>` +
+      `<rect width='100%' height='100%' fill='#F1EDFD'/>` +
+      `<text x='50%' y='50%' font-size='44' text-anchor='middle' dominant-baseline='central'>🍽️</text>` +
+      `</svg>`
+  );
