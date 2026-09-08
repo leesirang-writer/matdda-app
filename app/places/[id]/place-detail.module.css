@@ -1,0 +1,304 @@
+/* feed.module.css와 같은 디자인 언어(색상, 카드 스타일)를 상세 페이지용으로 확장.
+
+   2026-09-08(10차): 9차의 "홍대/을지로 그래피티" 무드(검정 헤더+핑크
+   테두리, 회전된 배지, 마스킹테이프 리뷰 카드 장식, 오프셋 그림자)를
+   걷어내고, feed.module.css와 함께 캐치테이블/토스 스타일의 깔끔한
+   모던 미니멀 톤으로 전면 교체. 이 페이지는 아직 460px 모바일 셸
+   레이아웃 그대로지만, 색상·테두리·그림자·폰트는 feed.module.css와
+   같은 팔레트(globals.css의 surface/accent/border 계열 변수)를
+   그대로 이어받는다. 클래스 이름/구조는 그대로 유지 — page.tsx /
+   place-header-actions.tsx 수정 없음. */
+
+.page {
+  min-height: 100vh;
+  background: var(--surface-bg);
+  display: flex;
+  justify-content: center;
+}
+
+.shell {
+  width: 100%;
+  max-width: 460px;
+  min-height: 100vh;
+  background: var(--surface-card);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-md);
+  padding-bottom: 96px; /* 하단 고정 버튼 높이만큼 여백 */
+}
+
+.header {
+  padding: 16px 20px 18px;
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.headerActions {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.title {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.categoryBadge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent-purple);
+  background: var(--accent-purple-soft);
+  border-radius: 6px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.infoSection {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.infoRow {
+  font-size: 13.5px;
+  color: var(--text-primary);
+}
+
+.infoRowMuted {
+  font-size: 13.5px;
+  color: var(--text-tertiary);
+}
+
+.infoRowLink {
+  font-size: 13.5px;
+  color: var(--accent-purple);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.kakaoButton {
+  align-self: flex-start;
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 7px 12px;
+  text-decoration: none;
+  box-shadow: var(--shadow-soft);
+}
+
+.factsSection {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sectionTitle {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  margin: 4px 0 2px;
+  color: var(--text-primary);
+}
+
+.factGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.factItem {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.factLabel {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.factYes {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1c8a4f;
+}
+
+.factNo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.factUnknown {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-warm);
+  font-style: italic;
+}
+
+.reviewsSection {
+  padding: 18px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reviewsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.againBadge {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--accent-purple);
+  background: var(--accent-purple-soft);
+  border-radius: 999px;
+  padding: 5px 11px;
+}
+
+.emptyReviews {
+  padding: 40px 16px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  background: var(--surface-bg);
+  border: 1px dashed var(--border-subtle-strong);
+  border-radius: 14px;
+}
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.reviewCard {
+  position: relative;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-soft);
+}
+
+.reviewAuthorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reviewAuthor {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.verdictTag {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.purposeTag {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-purple);
+  background: var(--accent-purple-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.reviewContent {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.reviewMeta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.bottomSpacer {
+  flex: 1;
+}
+
+.ctaBar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: 460px;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: var(--accent-purple);
+  color: #fff;
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  transition: background 0.15s ease;
+}
+.ctaBar:hover {
+  background: var(--accent-purple-dark);
+}

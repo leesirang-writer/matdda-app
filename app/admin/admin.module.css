@@ -1,0 +1,408 @@
+/* feed.module.css / place-detail.module.css와 같은 톤(oklch 팔레트, 460px 셸)을
+   그대로 이어받은 관리자 전용 스타일. */
+
+.page {
+  min-height: 100vh;
+  background: oklch(93% 0.006 60);
+  display: flex;
+  justify-content: center;
+}
+
+.shell {
+  width: 100%;
+  max-width: 460px;
+  min-height: 100vh;
+  background: oklch(97% 0.008 60);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+/* ---------- 로그인 화면 ---------- */
+.loginPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(93% 0.006 60);
+  padding: 24px;
+}
+.loginCard {
+  width: 100%;
+  max-width: 340px;
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px 26px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+.loginLock {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+.loginTitle {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+.loginDesc {
+  font-size: 12.5px;
+  color: oklch(55% 0.02 50);
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+.loginError {
+  background: oklch(93% 0.06 30);
+  color: oklch(45% 0.15 30);
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+}
+.loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.loginInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid oklch(91% 0.01 50);
+  font-size: 14px;
+  text-align: center;
+  font-family: inherit;
+}
+.loginButton {
+  padding: 12px 0;
+  border-radius: 12px;
+  border: none;
+  background: oklch(56% 0.2 300);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.backLink {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 12.5px;
+  color: oklch(55% 0.02 50);
+  text-decoration: none;
+}
+
+/* ---------- 관리자 본문 ---------- */
+.header {
+  padding: 18px 20px 14px;
+  background: oklch(99% 0.003 60);
+  border-bottom: 1px solid oklch(91% 0.01 50);
+}
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logoutButton {
+  border: 1px solid oklch(88% 0.01 50);
+  background: #fff;
+  color: oklch(45% 0.02 50);
+  font-size: 12.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.section {
+  padding: 20px 20px 8px;
+}
+.sectionTitle {
+  font-size: 15.5px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+.sectionDesc {
+  font-size: 12px;
+  color: oklch(55% 0.02 50);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.newPlaceToggle {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px dashed oklch(62% 0.19 40);
+  background: oklch(97% 0.03 40);
+  color: oklch(50% 0.16 40);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  margin-bottom: 12px;
+}
+.newPlaceForm {
+  background: #fff;
+  border: 1.5px solid oklch(62% 0.19 40);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.newPlaceHint {
+  font-size: 11.5px;
+  color: oklch(55% 0.02 50);
+  line-height: 1.5;
+  margin: 0 0 4px;
+}
+.fieldRow {
+  display: flex;
+  gap: 10px;
+}
+.fieldRow .fieldLabel {
+  flex: 1;
+  min-width: 0;
+}
+.fieldSelect {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid oklch(91% 0.01 50);
+  font-size: 13px;
+  font-family: inherit;
+  color: oklch(22% 0.015 50);
+  background: #fff;
+}
+.trendyToggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: oklch(50% 0.16 40);
+  cursor: pointer;
+}
+.trendyCheckbox {
+  width: 17px;
+  height: 17px;
+  accent-color: oklch(56% 0.2 300);
+  cursor: pointer;
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1.5px solid oklch(91% 0.01 50);
+  font-size: 13.5px;
+  font-family: inherit;
+}
+.resultCount {
+  font-size: 11.5px;
+  color: oklch(55% 0.02 50);
+  margin: 8px 2px 12px;
+}
+
+.placeList,
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+
+.placeRow {
+  background: #fff;
+  border: 1px solid oklch(91% 0.01 50);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.placeEditForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.placeThumb {
+  width: 100%;
+  max-width: 160px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: oklch(93% 0.01 50);
+}
+.fieldFileInput {
+  font-size: 12px;
+  font-family: inherit;
+  color: oklch(45% 0.02 50);
+}
+.rowFooter {
+  border-top: 1px solid oklch(93% 0.01 50);
+  padding-top: 10px;
+}
+.deleteLinkButton {
+  border: none;
+  background: none;
+  color: oklch(50% 0.16 30);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+.deleteConfirmRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: oklch(97% 0.03 30);
+  border: 1px solid oklch(85% 0.08 30);
+  border-radius: 10px;
+  padding: 10px;
+}
+.deleteConfirmText {
+  font-size: 11.5px;
+  color: oklch(40% 0.15 30);
+  line-height: 1.5;
+  font-weight: 600;
+}
+.deleteConfirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.cancelButton {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid oklch(88% 0.01 50);
+  background: #fff;
+  color: oklch(45% 0.02 50);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.placeRowHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.placeName {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.placeMeta {
+  font-size: 11.5px;
+  color: oklch(55% 0.02 50);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: oklch(45% 0.02 50);
+}
+.fieldInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid oklch(91% 0.01 50);
+  font-size: 13px;
+  font-family: inherit;
+  color: oklch(22% 0.015 50);
+}
+.saveButton {
+  align-self: flex-end;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: none;
+  background: oklch(62% 0.19 40);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.reviewRow {
+  background: #fff;
+  border: 1px solid oklch(91% 0.01 50);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.reviewRowHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.reviewPlace {
+  font-size: 14px;
+  font-weight: 700;
+}
+.reviewPurpose {
+  font-size: 11px;
+  font-weight: 600;
+  color: oklch(55% 0.02 50);
+  background: oklch(95% 0.01 50);
+  border-radius: 7px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.reviewAuthor {
+  font-size: 11.5px;
+  color: oklch(55% 0.02 50);
+}
+.reviewContent {
+  font-size: 13px;
+  line-height: 1.55;
+  color: oklch(25% 0.015 50);
+  margin: 2px 0 4px;
+  white-space: pre-wrap;
+}
+.deleteButton {
+  align-self: flex-end;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid oklch(75% 0.13 30);
+  background: #fff;
+  color: oklch(50% 0.16 30);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.emptyState {
+  padding: 30px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: oklch(55% 0.02 50);
+}
