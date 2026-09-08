@@ -241,7 +241,7 @@ export default function FeedBrowser({
               <p className={styles.emptyStateTitle}>선택하신 조건에 맞는 장소가 아직 없어요!</p>
               <div className={styles.emptyStateActions}>
                 <button type="button" onClick={widenDistance} className={styles.emptyStateBtn}>
-                  🏃 15분 이내(1km)로 범위 넓히기
+                  🏃 거리 제한 없이 넓게 보기
                 </button>
                 <button type="button" onClick={resetFilters} className={styles.emptyStateBtnGhost}>
                   🔄 필터 초기화

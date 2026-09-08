@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { mealWeightFor, type FeedPlace, type MealWeight } from "./feed-display";
 
 export type SortKey = "distance" | "again_rate" | "price";
-export type DistanceKey = "near" | "mid" | "far";
+export type DistanceKey = "near" | "far";
 
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "distance", label: "거리 가까운 순" },
@@ -18,13 +18,15 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "price", label: "가격 낮은 순" },
 ];
 
-// 단순 "이하" 누적 필터가 아니라 min~max 구간 필터 — 버튼마다 겹치지 않는
-// 서로 다른 식당군이 뜨도록 구간을 딱 잘라 나눴다(회사 바로 앞 스피드 식당 /
-// 명동·필동 기분전환 맛집 / 을지로3가 힙지로 원정대).
-export const DISTANCE_OPTIONS: { value: DistanceKey; min: number; max: number; label: string }[] = [
-  { value: "near", min: 1, max: 5, label: "⚡️ 도보 5분 컷 (1~5분)" },
-  { value: "mid", min: 6, max: 10, label: "🚶 도보 6~10분 (600m)" },
-  { value: "far", min: 11, max: 15, label: "🏃 도보 11~15분 (1km)" },
+// min~max 구간 필터. 원래는 5분/6~10분/11~15분 3단계였는데, 실제 등록된
+// 장소가 회사 바로 앞(1~2분)이거나 을지로 힙지로 원정대(12~14분)에만 몰려
+// 있어서 그 사이(6~10분) 구간은 늘 0곳이었다. 그래서 "회사 바로 앞 스피드
+// 식사" vs "조금 걸어 나가는 힙지로·명동 원정"이라는 실제 두 동선에 맞춰
+// 2단계로 통합함(2026-09-08). far는 상한을 안 둬서(max: null) 앞으로 더 먼
+// 곳이 추가돼도 항상 걸리도록 열어둔다.
+export const DISTANCE_OPTIONS: { value: DistanceKey; min: number; max: number | null; label: string }[] = [
+  { value: "near", min: 1, max: 5, label: "⚡️ 도보 5분 컷 (회사 바로 앞)" },
+  { value: "far", min: 6, max: null, label: "🏃 도보 6분 이상 (힙지로·명동 원정)" },
 ];
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -61,7 +63,9 @@ export function useFeedFilters(places: FeedPlace[], isLunchFilter: boolean) {
     let list = places.filter((p) => {
       if (
         distRange &&
-        (p.walk_minutes == null || p.walk_minutes < distRange.min || p.walk_minutes > distRange.max)
+        (p.walk_minutes == null ||
+          p.walk_minutes < distRange.min ||
+          (distRange.max != null && p.walk_minutes > distRange.max))
       ) {
         return false;
       }
@@ -97,7 +101,7 @@ export function useFeedFilters(places: FeedPlace[], isLunchFilter: boolean) {
     setMealWeight(null);
   }
 
-  /** 빈 결과 카드의 "15분 이내로 범위 넓히기" 버튼 — 거리 구간 제한만 풀어준다. */
+  /** 빈 결과 카드의 "거리 제한 없이 넓게 보기" 버튼 — 거리 구간 제한만 풀어준다. */
   function widenDistance() {
     setDistance(null);
   }
