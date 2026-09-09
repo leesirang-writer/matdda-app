@@ -31,7 +31,7 @@ export default function ReviewsPanel({ reviews }: { reviews: AdminReview[] }) {
             {r.author_department ? `${r.author_department} · ` : ""}
             {r.author_name}
           </div>
-          <p className={styles.reviewContent}>{r.content}</p>
+          {r.content && <p className={styles.reviewContent}>{r.content}</p>}
 
           <form
             action={deleteReview}

@@ -169,7 +169,7 @@ function ReviewCard({ review }: { review: PlaceReview }) {
         <span className={styles.verdictTag}>{VERDICT_LABEL[review.verdict] ?? review.verdict}</span>
       </div>
       <span className={styles.purposeTag}>{PURPOSE_LABEL[review.purpose] ?? review.purpose}</span>
-      <p className={styles.reviewContent}>{review.content}</p>
+      {review.content && <p className={styles.reviewContent}>{review.content}</p>}
       <div className={styles.reviewMeta}>
         {review.price_per_person != null && (
           <span>1인 {review.price_per_person.toLocaleString()}원</span>

@@ -22,7 +22,8 @@ export type AdminReview = {
   author_department: string | null;
   purpose: string;
   verdict: string;
-  content: string;
+  // 한 줄 꿀팁은 이제 선택 입력이라(8차) 비어있을 수 있다.
+  content: string | null;
   created_at: string;
 };
 
@@ -60,31 +61,35 @@ export async function getAdminPlaces(): Promise<AdminPlace[]> {
   }));
 }
 
-// 관리자 화면에서는 별명이 아니라 실명을 보여준다 — "누가 썼는지" 파악해서
-// 부적절한 리뷰를 판단해야 하기 때문 (공개 피드의 display_mode 로직과는 다르다).
+// 2026-09-09(8차, 완전 익명 리뷰 전환): 이메일 로그인이 없어져서 새 리뷰는
+// author_id(profiles)가 아예 없다 — 관리자 화면도 이제 "실명"이 아니라
+// author_dept/author_name(닉네임 또는 익명의 동료)을 보여준다. 익명 시스템의
+// 목적 자체가 "누가 썼는지 특정 못 하게"이므로, 부적절한 리뷰 판단은
+// 부서+내용 기준으로 한다. 옛 이메일 로그인 시절 리뷰(author_id만 있는 행)만
+// profiles를 left join해서 그때 실명을 계속 보여준다.
 export async function getAdminReviews(): Promise<AdminReview[]> {
   const rows = await sql`
     select
       r.id,
       pl.name as place_name,
-      pr.name as author_name,
-      pr.department as author_department,
+      coalesce(nullif(r.author_name, ''), pr.name) as author_name,
+      coalesce(nullif(r.author_dept, ''), pr.department) as author_department,
       r.purpose, r.verdict, r.content,
       r.created_at
     from reviews r
     join places pl on pl.id = r.place_id
-    join profiles pr on pr.id = r.author_id
+    left join profiles pr on pr.id = r.author_id
     where r.status = 'published'
     order by r.created_at desc
   `;
   return (rows as Record<string, unknown>[]).map((row) => ({
     id: row.id as string,
     place_name: row.place_name as string,
-    author_name: row.author_name as string,
+    author_name: (row.author_name as string) ?? "익명의 동료",
     author_department: (row.author_department as string) ?? null,
     purpose: row.purpose as string,
     verdict: row.verdict as string,
-    content: row.content as string,
+    content: (row.content as string) ?? null,
     created_at:
       (row.created_at as Date | string) instanceof Date
         ? (row.created_at as Date).toISOString()

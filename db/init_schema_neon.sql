@@ -155,10 +155,10 @@ on conflict (name) do nothing;
 create table if not exists public.reviews (
   id               uuid primary key default gen_random_uuid(),
   place_id         uuid not null references public.places(id) on delete cascade,
-  author_id        uuid not null references public.profiles(id) on delete cascade,
+  author_id        uuid references public.profiles(id) on delete cascade,
   purpose          text not null check (purpose in ('client', 'remote_work', 'lunch', 'dinner', 'cafe')),
   verdict          text not null check (verdict in ('again', 'ok', 'no')),
-  content          text not null check (char_length(content) between 1 and 500),
+  content          text check (char_length(content) between 1 and 500),
   ai_summary       text,
   price_per_person integer check (price_per_person >= 0),
   wait_minutes     smallint check (wait_minutes >= 0),
@@ -166,6 +166,13 @@ create table if not exists public.reviews (
   visit_date       date,
   display_mode     text not null default 'name' check (display_mode in ('name', 'nickname')),
   status           text not null default 'published' check (status in ('published', 'hidden', 'reported')),
+  -- 2026-09-09(8차, 완전 익명 리뷰 전환): 사내 이메일 인증을 아예 없애면서
+  -- author_id(profiles 참조)가 더 이상 채워지지 않는다. 대신 제출 시점에
+  -- 입력한 소속 본부/팀과 닉네임(비웠으면 "익명의 동료")을 리뷰 행에 직접
+  -- 저장한다 — 그 결과 author_id는 옛 이메일 로그인 시절 리뷰에만 남아있는
+  -- "레거시" 컬럼이 된다.
+  author_dept      text,
+  author_name      text,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
@@ -185,6 +192,13 @@ alter table public.reviews add column if not exists display_mode text not null d
 alter table public.reviews add column if not exists status text not null default 'published';
 alter table public.reviews add column if not exists created_at timestamptz not null default now();
 alter table public.reviews add column if not exists updated_at timestamptz not null default now();
+-- 익명 리뷰 전환(8차): 이메일 로그인이 없어졌으니 author_id를 더 이상 강제하지
+-- 않는다(레거시 행은 계속 이 컬럼으로 profiles와 연결됨). content도 "한 줄
+-- 꿀팁"이 선택 입력으로 바뀌어서 비어있을 수 있다.
+alter table public.reviews alter column author_id drop not null;
+alter table public.reviews alter column content drop not null;
+alter table public.reviews add column if not exists author_dept text;
+alter table public.reviews add column if not exists author_name text;
 
 create index if not exists idx_reviews_place on public.reviews (place_id);
 create index if not exists idx_reviews_author on public.reviews (author_id);

@@ -3,7 +3,17 @@
 import { redirect } from "next/navigation";
 import { put } from "@vercel/blob";
 import { sql } from "@/lib/db";
-import { getSessionProfileId } from "@/lib/session";
+
+// review-form.tsx의 DEPARTMENTS와 반드시 동일하게 유지 — 서버가 최종 검증하는
+// 화이트리스트라 여기가 원본이다.
+const DEPARTMENTS = [
+  "홍보본부",
+  "디지털본부",
+  "경영지원/총무",
+  "기획/제안",
+  "인사이트/연구",
+  "기타",
+];
 
 function toIntOrNull(v: FormDataEntryValue | null): number | null {
   if (v === null) return null;
@@ -58,40 +68,50 @@ async function applyFacilityUpdates(placeId: string, formData: FormData) {
   }
 }
 
+/**
+ * 2026-09-09(8차, 완전 익명 리뷰 전환): 이메일 로그인이 완전히 사라졌다.
+ * 세션/프로필을 조회하지 않고, 폼에서 받은 소속 본부/팀(author_dept)과
+ * 닉네임(author_name, 비웠으면 "익명의 동료")을 리뷰 행에 직접 저장한다.
+ * author_email/author_id는 전혀 남기지 않는다 — QR이나 링크로 처음 들어온
+ * 사람도 바로 제출할 수 있어야 한다는 게 이 변경의 핵심이다.
+ */
 export async function submitReview(formData: FormData) {
-  const profileId = await getSessionProfileId();
-  if (!profileId) {
-    redirect("/login");
-  }
-
   const placeId = formData.get("place_id")?.toString() || "";
   const purpose = formData.get("purpose")?.toString() || "";
   const verdict = formData.get("verdict")?.toString() || "";
-  const content = (formData.get("content")?.toString() || "").trim();
-  const displayMode = formData.get("display_mode")?.toString() || "name";
+  const contentRaw = (formData.get("content")?.toString() || "").trim();
+  // 한 줄 꿀팁은 이제 선택 입력이라, 비어있으면 DB에도 그냥 null로 남긴다
+  // (컬럼의 char_length(content) between 1 and 500 체크는 null에는 적용되지
+  // 않으므로 빈 문자열("") 대신 반드시 null을 넘겨야 한다).
+  const content = contentRaw.length > 0 ? contentRaw : null;
   const pricePerPerson = toIntOrNull(formData.get("price_per_person"));
   const waitMinutes = toIntOrNull(formData.get("wait_minutes"));
   const partySize = toIntOrNull(formData.get("party_size"));
   const visitDateRaw = formData.get("visit_date")?.toString();
   const visitDate = visitDateRaw && visitDateRaw.length > 0 ? visitDateRaw : null;
 
+  const authorDept = formData.get("author_dept")?.toString().trim() || "";
+  const authorNameRaw = (formData.get("author_name")?.toString() || "").trim();
+  const authorName = authorNameRaw.length > 0 ? authorNameRaw : "익명의 동료";
+
   if (!placeId) fail("장소를 선택해주세요.");
   if (!["client", "remote_work", "lunch", "dinner", "cafe"].includes(purpose)) {
     fail("방문 목적을 선택해주세요.");
   }
   if (!["again", "ok", "no"].includes(verdict)) fail("평가를 선택해주세요.");
-  if (content.length < 1) fail("한 줄 소감을 입력해주세요.");
-  if (content.length > 500) fail("소감은 500자 이내로 적어주세요.");
-  if (!["name", "nickname"].includes(displayMode)) fail("표시 방식이 올바르지 않습니다.");
+  if (content && content.length > 500) fail("코멘트는 500자 이내로 적어주세요.");
+  if (!DEPARTMENTS.includes(authorDept)) fail("소속 본부/팀을 선택해주세요.");
 
   const inserted = await sql`
     insert into reviews (
-      place_id, author_id, purpose, verdict, content,
-      price_per_person, wait_minutes, party_size, visit_date, display_mode
+      place_id, purpose, verdict, content,
+      price_per_person, wait_minutes, party_size, visit_date,
+      author_dept, author_name
     )
     values (
-      ${placeId}, ${profileId}, ${purpose}, ${verdict}, ${content},
-      ${pricePerPerson}, ${waitMinutes}, ${partySize}, ${visitDate}, ${displayMode}
+      ${placeId}, ${purpose}, ${verdict}, ${content},
+      ${pricePerPerson}, ${waitMinutes}, ${partySize}, ${visitDate},
+      ${authorDept}, ${authorName}
     )
     returning id
   `;

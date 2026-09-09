@@ -27,7 +27,8 @@ export type PlaceReview = {
   author_department: string | null;
   purpose: string;
   verdict: string;
-  content: string;
+  // 한 줄 꿀팁은 이제 선택 입력이라(8차) 비어있을 수 있다.
+  content: string | null;
   price_per_person: number | null;
   wait_minutes: number | null;
   party_size: number | null;
@@ -81,23 +82,30 @@ export async function getPlaceDetail(id: string): Promise<PlaceDetail | null> {
   };
 }
 
-// 작성자 표시명: display_mode가 'nickname'이고 실제 별명이 있으면 별명을,
-// 그 외엔 항상 실명을 보여준다 (리뷰 작성 시점의 선택을 그대로 반영).
+// 작성자 표시명: 2026-09-09(8차, 완전 익명 리뷰 전환) 이후 새 리뷰는
+// r.author_dept/r.author_name에 곧바로 저장된다("부서 · 닉네임 또는 익명의
+// 동료" 형태). author_id가 없는(=이메일 로그인 없이 작성된) 행이 기본이고,
+// 옛 이메일 로그인 시절 리뷰(author_id만 있고 author_dept/author_name은
+// 비어있음)만 profiles를 left join해서 예전 방식(실명/별명 표시 선택)으로
+// 채워준다.
 export async function getPlaceReviews(id: string): Promise<PlaceReview[]> {
   const rows = await sql`
     select
       r.id,
-      case
-        when r.display_mode = 'nickname' and pr.nickname is not null and pr.nickname <> ''
-        then pr.nickname
-        else pr.name
-      end as author_display_name,
-      pr.department as author_department,
+      coalesce(
+        nullif(r.author_name, ''),
+        case
+          when r.display_mode = 'nickname' and pr.nickname is not null and pr.nickname <> ''
+          then pr.nickname
+          else pr.name
+        end
+      ) as author_display_name,
+      coalesce(nullif(r.author_dept, ''), pr.department) as author_department,
       r.purpose, r.verdict, r.content,
       r.price_per_person, r.wait_minutes, r.party_size,
       r.created_at
     from reviews r
-    join profiles pr on pr.id = r.author_id
+    left join profiles pr on pr.id = r.author_id
     where r.place_id = ${id} and r.status = 'published'
     order by r.created_at desc
   `;
@@ -107,7 +115,7 @@ export async function getPlaceReviews(id: string): Promise<PlaceReview[]> {
     author_department: (row.author_department as string) ?? null,
     purpose: row.purpose as string,
     verdict: row.verdict as string,
-    content: row.content as string,
+    content: (row.content as string) ?? null,
     price_per_person: toNumOrNull(row.price_per_person),
     wait_minutes: toNumOrNull(row.wait_minutes),
     party_size: toNumOrNull(row.party_size),

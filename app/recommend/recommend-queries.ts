@@ -198,11 +198,11 @@ export async function getRecommendations(
         where r.place_id = pl.id and r.status = 'published' and r.wait_minutes is not null
       ) wait on true
       left join lateral (
-        select pr.department
+        select coalesce(nullif(r2.author_dept, ''), pr.department) as department
         from reviews r2
-        join profiles pr on pr.id = r2.author_id
+        left join profiles pr on pr.id = r2.author_id
         where r2.place_id = pl.id and r2.status = 'published'
-          and pr.department is not null and pr.department <> ''
+          and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
         order by r2.created_at desc
         limit 1
       ) dep on true
@@ -255,11 +255,11 @@ export async function getRecommendations(
         where r.place_id = pl.id and r.status = 'published' and r.purpose = 'client' and r.wait_minutes is not null
       ) wait on true
       left join lateral (
-        select pr.department
+        select coalesce(nullif(r2.author_dept, ''), pr.department) as department
         from reviews r2
-        join profiles pr on pr.id = r2.author_id
+        left join profiles pr on pr.id = r2.author_id
         where r2.place_id = pl.id and r2.status = 'published' and r2.purpose = 'client'
-          and pr.department is not null and pr.department <> ''
+          and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
         order by r2.created_at desc
         limit 1
       ) dep on true
@@ -312,11 +312,11 @@ export async function getRecommendations(
         where r.place_id = pl.id and r.status = 'published' and r.purpose = 'lunch' and r.wait_minutes is not null
       ) wait on true
       left join lateral (
-        select pr.department
+        select coalesce(nullif(r2.author_dept, ''), pr.department) as department
         from reviews r2
-        join profiles pr on pr.id = r2.author_id
+        left join profiles pr on pr.id = r2.author_id
         where r2.place_id = pl.id and r2.status = 'published' and r2.purpose = 'lunch'
-          and pr.department is not null and pr.department <> ''
+          and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
         order by r2.created_at desc
         limit 1
       ) dep on true
@@ -371,12 +371,12 @@ export async function getRecommendations(
         and r.purpose = case when pl.place_type = 'meal' then 'lunch' else 'remote_work' end
     ) wait on true
     left join lateral (
-      select pr.department
+      select coalesce(nullif(r2.author_dept, ''), pr.department) as department
       from reviews r2
-      join profiles pr on pr.id = r2.author_id
+      left join profiles pr on pr.id = r2.author_id
       where r2.place_id = pl.id and r2.status = 'published'
         and r2.purpose = case when pl.place_type = 'meal' then 'lunch' else 'remote_work' end
-        and pr.department is not null and pr.department <> ''
+        and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
       order by r2.created_at desc
       limit 1
     ) dep on true

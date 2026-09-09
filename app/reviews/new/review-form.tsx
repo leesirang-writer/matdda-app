@@ -12,40 +12,52 @@ type Place = {
   walk_minutes: number | null;
 };
 
+// 2026-09-09(8차, 완전 익명 리뷰 전환) — 방문 목적 4개로 정리(카페 전용 "커피"는
+// 뺐다). 순서/문구는 기획 스펙 그대로: 점심 → 클라이언트 접대 → 자유 외근 → 저녁 회식.
 const PURPOSES: { value: string; label: string }[] = [
+  { value: "lunch", label: "🍚 점심" },
   { value: "client", label: "👔 클라이언트 접대" },
   { value: "remote_work", label: "💻 자유 외근" },
-  { value: "lunch", label: "🍚 점심" },
-  { value: "dinner", label: "🍻 회식" },
-  { value: "cafe", label: "☕ 커피" },
+  { value: "dinner", label: "🍺 저녁 회식" },
 ];
 
 const VERDICTS: { value: string; label: string }[] = [
-  { value: "again", label: "또 갈래요" },
-  { value: "ok", label: "보통" },
-  { value: "no", label: "굳이" },
+  { value: "again", label: "🔥 또 갈래요!" },
+  { value: "ok", label: "🙂 보통" },
+  { value: "no", label: "🤔 굳이" },
+];
+
+// actions.ts의 화이트리스트와 반드시 동일하게 유지.
+const DEPARTMENTS = [
+  "홍보본부",
+  "디지털본부",
+  "경영지원/총무",
+  "기획/제안",
+  "인사이트/연구",
+  "기타",
 ];
 
 export function ReviewForm({
   places,
-  hasNickname,
   initialPlaceId,
 }: {
   places: Place[];
-  hasNickname: boolean;
   initialPlaceId?: string;
 }) {
   const [query, setQuery] = useState("");
-  // 상세 페이지의 "이 장소에 리뷰 남기기" 버튼처럼 place_id를 들고 들어온 경우,
-  // 해당 장소가 목록에 실제로 있을 때만 미리 선택해준다 (없는 id면 무시).
+  // 상세 페이지의 "이 장소에 리뷰 남기기" 버튼이나 QR/링크로 place_id를 들고
+  // 들어온 경우, 해당 장소가 목록에 실제로 있을 때만 자동 지정해준다.
   const [placeId, setPlaceId] = useState(
     initialPlaceId && places.some((p) => p.id === initialPlaceId) ? initialPlaceId : ""
   );
   const [purpose, setPurpose] = useState("");
   const [verdict, setVerdict] = useState("");
-  // 접대/외근 꿀팁 체크리스트: "있음/없음/모름" 3단 확인. 기본은 모름(빈 값)이라
-  // 아무것도 안 누르면 기존처럼 해당 항목을 건드리지 않는다 (다른 사람이 이미
-  // 확인해둔 값을 실수로 지우지 않기 위함).
+  const [dept, setDept] = useState("");
+
+  // 접대/외근 꿀팁 체크리스트, 숫자 정보, 사진은 이제 "더 자세히" 아코디언
+  // 안으로 옮겼다 — 전부 선택 입력이라 기본 흐름(6단계, ~10초)에는 영향이
+  // 없으면서도, 원하는 사람은 조건 추천 정확도에 도움되는 값을 계속 남길 수
+  // 있다.
   const [facility, setFacility] = useState<Record<string, "true" | "false">>({});
   function setFact(name: string, value: "true" | "false" | "unknown") {
     setFacility((prev) => {
@@ -66,12 +78,14 @@ export function ReviewForm({
     return places.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 20);
   }, [places, query]);
 
+  const canSubmit = !!placeId && !!purpose && !!verdict && !!dept;
+
   return (
     <form
       action={submitReview}
       style={{ display: "flex", flexDirection: "column", gap: 22 }}
     >
-      {/* 1. 장소 검색 */}
+      {/* 1. 장소 선택 (검색 또는 자동 지정) */}
       <section>
         <label style={labelStyle}>어디 다녀오셨어요?</label>
         <input
@@ -121,7 +135,7 @@ export function ReviewForm({
         <input type="hidden" name="place_id" value={placeId} required />
       </section>
 
-      {/* 2. 방문 목적 */}
+      {/* 2. 방문 목적 선택 */}
       <section>
         <label style={labelStyle}>오늘 이곳엔 왜 가셨어요?</label>
         <div style={chipRowStyle}>
@@ -139,79 +153,7 @@ export function ReviewForm({
         <input type="hidden" name="purpose" value={purpose} required />
       </section>
 
-      {/* 3. 접대 목적일 때만 보이는 접대 꿀팁 체크리스트 */}
-      {purpose === "client" && (
-        <section style={facilityBoxStyle}>
-          <div style={facilityTitleStyle}>
-            👔 접대 꿀팁 체크리스트 — 확실히 아는 것만 답해주세요 (선택)
-          </div>
-          <FacilityTriState
-            name="has_room"
-            label="룸/개별공간"
-            value={facility.has_room}
-            onChange={(v) => setFact("has_room", v)}
-          />
-          <FacilityTriState
-            name="reservation_required"
-            label="예약 필수"
-            value={facility.reservation_required}
-            onChange={(v) => setFact("reservation_required", v)}
-          />
-          <FacilityTriState
-            name="has_parking"
-            label="주차 가능"
-            value={facility.has_parking}
-            onChange={(v) => setFact("has_parking", v)}
-          />
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontSize: 13.5,
-              marginTop: 10,
-            }}
-          >
-            최대 수용 인원 (모르면 비워두세요)
-            <input
-              name="max_party_size"
-              type="number"
-              min={1}
-              style={{ ...inputStyle, width: 80, marginTop: 0 }}
-            />
-            명
-          </label>
-        </section>
-      )}
-
-      {/* 4. 외근 목적일 때만 보이는 외근 꿀팁 체크리스트 */}
-      {purpose === "remote_work" && (
-        <section style={facilityBoxStyle}>
-          <div style={facilityTitleStyle}>
-            💻 외근 꿀팁 체크리스트 — 확실히 아는 것만 답해주세요 (선택)
-          </div>
-          <FacilityTriState
-            name="has_outlet"
-            label="콘센트"
-            value={facility.has_outlet}
-            onChange={(v) => setFact("has_outlet", v)}
-          />
-          <FacilityTriState
-            name="is_quiet"
-            label="조용해서 통화/작업 가능"
-            value={facility.is_quiet}
-            onChange={(v) => setFact("is_quiet", v)}
-          />
-          <FacilityTriState
-            name="long_stay_ok"
-            label="오래 앉아있어도 눈치 안 보임"
-            value={facility.long_stay_ok}
-            onChange={(v) => setFact("long_stay_ok", v)}
-          />
-        </section>
-      )}
-
-      {/* 5. 평가 */}
+      {/* 3. 3단 평가 */}
       <section>
         <label style={labelStyle}>다시 갈 것 같으세요?</label>
         <div style={chipRowStyle}>
@@ -229,12 +171,38 @@ export function ReviewForm({
         <input type="hidden" name="verdict" value={verdict} required />
       </section>
 
-      {/* 6. 한 줄 소감 */}
+      {/* 4. 소속팀 선택 + 닉네임 입력(선택) */}
       <section>
-        <label style={labelStyle}>한 줄 소감</label>
+        <label style={labelStyle}>소속 본부/팀 (필수 선택)</label>
+        <div style={chipRowStyle}>
+          {DEPARTMENTS.map((d) => (
+            <button
+              type="button"
+              key={d}
+              onClick={() => setDept(d)}
+              style={dept === d ? chipActiveStyle : chipStyle}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="author_dept" value={dept} required />
+
+        <label style={{ ...labelStyle, marginTop: 16 }}>닉네임 (선택 사항)</label>
+        <input
+          name="author_name"
+          type="text"
+          maxLength={30}
+          placeholder="비워두면 '익명의 동료'로 표시돼요"
+          style={inputStyle}
+        />
+      </section>
+
+      {/* 5. 한 줄 사내 꿀팁 코멘트 (선택) */}
+      <section>
+        <label style={labelStyle}>한 줄 사내 꿀팁 (선택)</label>
         <textarea
           name="content"
-          required
           maxLength={500}
           rows={3}
           placeholder="예: 룸이 조용해서 대화하기 좋았어요"
@@ -242,78 +210,137 @@ export function ReviewForm({
         />
       </section>
 
-      {/* 7. 숫자 정보 */}
-      <section style={{ display: "flex", gap: 10 }}>
-        <label style={{ flex: 1 }}>
-          <span style={labelStyle}>1인당 얼마 나왔나요?</span>
-          <input
-            name="price_per_person"
-            type="number"
-            min={0}
-            placeholder="12000"
-            style={inputStyle}
-          />
-        </label>
-        <label style={{ flex: 1 }}>
-          <span style={labelStyle}>대기시간(분)</span>
-          <input
-            name="wait_minutes"
-            type="number"
-            min={0}
-            placeholder="0"
-            style={inputStyle}
-          />
-        </label>
-      </section>
-      <section style={{ display: "flex", gap: 10 }}>
-        <label style={{ flex: 1 }}>
-          <span style={labelStyle}>몇 명이었나요?</span>
-          <input
-            name="party_size"
-            type="number"
-            min={1}
-            placeholder="2"
-            style={inputStyle}
-          />
-        </label>
-        <label style={{ flex: 1 }}>
-          <span style={labelStyle}>방문일</span>
-          <input
-            name="visit_date"
-            type="date"
-            defaultValue={new Date().toISOString().slice(0, 10)}
-            style={inputStyle}
-          />
-        </label>
-      </section>
+      {/* 더 자세히 남기기 (전부 선택) — 접대/외근 꿀팁 체크리스트, 숫자 정보,
+          사진. 기본 흐름 속도를 지키려고 접어둔다. */}
+      <details style={moreDetailsStyle}>
+        <summary style={moreSummaryStyle}>
+          ➕ 더 자세히 남기기 (선택 · 추천 정확도에 도움돼요)
+        </summary>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 16 }}>
+          {purpose === "client" && (
+            <section style={facilityBoxStyle}>
+              <div style={facilityTitleStyle}>
+                👔 접대 꿀팁 체크리스트 — 확실히 아는 것만 답해주세요
+              </div>
+              <FacilityTriState
+                name="has_room"
+                label="룸/개별공간"
+                value={facility.has_room}
+                onChange={(v) => setFact("has_room", v)}
+              />
+              <FacilityTriState
+                name="reservation_required"
+                label="예약 필수"
+                value={facility.reservation_required}
+                onChange={(v) => setFact("reservation_required", v)}
+              />
+              <FacilityTriState
+                name="has_parking"
+                label="주차 가능"
+                value={facility.has_parking}
+                onChange={(v) => setFact("has_parking", v)}
+              />
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13.5,
+                  marginTop: 10,
+                }}
+              >
+                최대 수용 인원 (모르면 비워두세요)
+                <input
+                  name="max_party_size"
+                  type="number"
+                  min={1}
+                  style={{ ...inputStyle, width: 80, marginTop: 0 }}
+                />
+                명
+              </label>
+            </section>
+          )}
 
-      {/* 8. 실명/별명 */}
-      {hasNickname ? (
-        <section>
-          <label style={labelStyle}>이 리뷰, 어떻게 보일까요?</label>
-          <div style={chipRowStyle}>
-            <label style={radioLabelStyle}>
-              <input type="radio" name="display_mode" value="name" defaultChecked />
-              실명
+          {purpose === "remote_work" && (
+            <section style={facilityBoxStyle}>
+              <div style={facilityTitleStyle}>
+                💻 외근 꿀팁 체크리스트 — 확실히 아는 것만 답해주세요
+              </div>
+              <FacilityTriState
+                name="has_outlet"
+                label="콘센트"
+                value={facility.has_outlet}
+                onChange={(v) => setFact("has_outlet", v)}
+              />
+              <FacilityTriState
+                name="is_quiet"
+                label="조용해서 통화/작업 가능"
+                value={facility.is_quiet}
+                onChange={(v) => setFact("is_quiet", v)}
+              />
+              <FacilityTriState
+                name="long_stay_ok"
+                label="오래 앉아있어도 눈치 안 보임"
+                value={facility.long_stay_ok}
+                onChange={(v) => setFact("long_stay_ok", v)}
+              />
+            </section>
+          )}
+
+          <section style={{ display: "flex", gap: 10 }}>
+            <label style={{ flex: 1 }}>
+              <span style={labelStyle}>1인당 얼마 나왔나요?</span>
+              <input
+                name="price_per_person"
+                type="number"
+                min={0}
+                placeholder="12000"
+                style={inputStyle}
+              />
             </label>
-            <label style={radioLabelStyle}>
-              <input type="radio" name="display_mode" value="nickname" />
-              별명
+            <label style={{ flex: 1 }}>
+              <span style={labelStyle}>대기시간(분)</span>
+              <input
+                name="wait_minutes"
+                type="number"
+                min={0}
+                placeholder="0"
+                style={inputStyle}
+              />
             </label>
-          </div>
-        </section>
-      ) : (
-        <input type="hidden" name="display_mode" value="name" />
-      )}
+          </section>
+          <section style={{ display: "flex", gap: 10 }}>
+            <label style={{ flex: 1 }}>
+              <span style={labelStyle}>몇 명이었나요?</span>
+              <input
+                name="party_size"
+                type="number"
+                min={1}
+                placeholder="2"
+                style={inputStyle}
+              />
+            </label>
+            <label style={{ flex: 1 }}>
+              <span style={labelStyle}>방문일</span>
+              <input
+                name="visit_date"
+                type="date"
+                defaultValue={new Date().toISOString().slice(0, 10)}
+                style={inputStyle}
+              />
+            </label>
+          </section>
 
-      {/* 9. 사진 */}
-      <section>
-        <label style={labelStyle}>사진 (선택)</label>
-        <input type="file" name="photos" accept="image/*" multiple style={{ marginTop: 6 }} />
-      </section>
+          <section>
+            <label style={labelStyle}>사진</label>
+            <input type="file" name="photos" accept="image/*" multiple style={{ marginTop: 6 }} />
+          </section>
+        </div>
+      </details>
 
-      <button type="submit" style={submitButtonStyle}>
-        리뷰 남기기
+      {/* 6. 등록하기 */}
+      <button type="submit" disabled={!canSubmit} style={submitButtonStyle(canSubmit)}>
+        등록하기
       </button>
     </form>
   );
@@ -396,11 +423,16 @@ const chipActiveStyle: React.CSSProperties = {
   borderColor: "#6C4CD8",
   color: "#fff",
 };
-const radioLabelStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
+const moreDetailsStyle: React.CSSProperties = {
+  border: "1px solid #eee",
+  borderRadius: 12,
+  padding: "12px 14px",
+};
+const moreSummaryStyle: React.CSSProperties = {
   fontSize: 13.5,
+  fontWeight: 700,
+  color: "#6C4CD8",
+  cursor: "pointer",
 };
 const facilityBoxStyle: React.CSSProperties = {
   background: "#f7f5ff",
@@ -467,13 +499,15 @@ const linkButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   padding: 0,
 };
-const submitButtonStyle: React.CSSProperties = {
-  padding: "14px 0",
-  borderRadius: 14,
-  border: "none",
-  background: "#6C4CD8",
-  color: "#fff",
-  fontWeight: 800,
-  fontSize: 15,
-  cursor: "pointer",
-};
+function submitButtonStyle(enabled: boolean): React.CSSProperties {
+  return {
+    padding: "14px 0",
+    borderRadius: 14,
+    border: "none",
+    background: enabled ? "#6C4CD8" : "#ccc",
+    color: "#fff",
+    fontWeight: 800,
+    fontSize: 15,
+    cursor: enabled ? "pointer" : "not-allowed",
+  };
+}
