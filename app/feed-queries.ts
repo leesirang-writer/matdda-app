@@ -53,6 +53,16 @@ const LIGHT_LUNCH_PATTERN =
 const HEARTY_LUNCH_PATTERN =
   "국밥|설렁탕|곰탕|수육|해장국|추어탕|삼계탕|백숙|찌개|백반|한정식|칼국수|쭈꾸미|갈비|불고기|곱창|덮밥|비빔밥|돈까스|냉면";
 
+// "저녁/회식" 쪽에서 상단에 먼저 보여줄 키워드 — 아직 회식(dinner) 목적
+// 리뷰가 0건이라 review_count로는 정렬이 안 먹혀서 사실상 전체 밥집이
+// 이름순으로만 나오고 있었음(2026-09-15, 14차 배포 후 사용자 발견). "든든한
+// 점심"과 똑같은 방식으로, 장소를 목록에서 빼지는 않되(정직한 데이터 원칙
+// 유지 — 리뷰 쌓이기 전까지 이걸로 대체 정렬) 이자카야/호프/포차/고깃집처럼
+// 저녁·회식 자리로 흔히 쓰이는 카테고리를 먼저 정렬해서 보여준다. 실제
+// 회식 리뷰가 쌓이기 시작하면 review_count가 자연스럽게 우선순위를 가져감.
+const DINNER_PATTERN =
+  "이자카야|호프|포차|요리주점|칵테일바|하이볼|노가리|술집|고기|구이|삼겹살|갈비|곱창|양꼬치|전골|찜";
+
 // Postgres의 numeric/count 결과는 드라이버에 따라 문자열로 올 수 있어서
 // (정밀도 손실을 피하려는 의도) 화면에서 쓰기 전에 안전하게 숫자로 바꿔준다.
 function toNumOrNull(v: unknown): number | null {
@@ -93,6 +103,9 @@ function normalizePlaceRow(row: Record<string, unknown>): FeedPlace {
 export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<FeedPlace[]> {
   if (axis === "food") {
     if (filter === "dinner") {
+      // 저녁/회식 — 실제 회식 리뷰가 쌓이면 review_count가 1순위로 올라오고,
+      // 그 전까지는 이자카야/호프/고깃집 등 회식 자리로 흔한 카테고리를 먼저
+      // 보여준다(dinner_rank). 장소 자체를 목록에서 빼진 않음(위 주석 참고).
       const rows = await sql`
         select
           pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
@@ -101,7 +114,11 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
           coalesce(agg.review_count, 0) as review_count,
           agg.again_rate,
           agg.avg_price_per_person,
-          photo.storage_path as thumbnail_url
+          photo.storage_path as thumbnail_url,
+          case
+            when (coalesce(pl.category, '') || ' ' || coalesce(pl.signature_menu, '')) ~* ${DINNER_PATTERN}
+            then 0 else 1
+          end as dinner_rank
         from places pl
         left join lateral (
           select
@@ -120,7 +137,7 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
           limit 1
         ) photo on true
         where pl.place_type in ('meal', 'both')
-        order by coalesce(agg.review_count, 0) desc, pl.name asc
+        order by coalesce(agg.review_count, 0) desc, dinner_rank asc, pl.name asc
       `;
       return (rows as Record<string, unknown>[]).map(normalizePlaceRow);
     }
