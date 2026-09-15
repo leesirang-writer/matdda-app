@@ -10,19 +10,22 @@ import {
 } from "./feed-queries";
 
 // "전체" 탭은 없앴다 — 축을 누르면 바로 첫 번째(기본) 상황 필터로 들어간다.
-// "trendy"는 을지로3가 힙지로 반경 확장에 맞춰 새로 추가한 20대 트렌드 필터
-// (관리자가 /admin에서 is_trendy를 켠 장소만 모아 보여줌).
+// 2026-09-15(14차): 임직원 실제 이용 패턴에 맞춰 "매일 겪는 실속 점심"과
+// "카페·작업 공간" 중심으로 순서/기본값을 전면 개편. 무거운 "룸/접대"는
+// 완전히 없애진 않되 맨 아래로 내렸다(가끔은 필요하니까). 새로 추가된
+// "light"(가벼운 점심)의 매칭 로직은 feed-queries.ts 참고.
 const FOOD_FILTERS: { value: FoodFilter; label: string }[] = [
-  { value: "lunch", label: "🍚 데일리 점심" },
+  { value: "lunch", label: "🍚 든든한 점심" },
+  { value: "light", label: "🥗 가벼운 점심" },
   { value: "trendy", label: "🌮 힙지로·트렌드" },
-  { value: "client", label: "👔 룸/접대" },
   { value: "dinner", label: "🍺 저녁/회식" },
+  { value: "client", label: "👔 룸/접대" },
 ];
 
 const STYLE_FILTERS: { value: StyleFilter; label: string }[] = [
-  { value: "remote", label: "💻 자유 외근" },
   { value: "trendy", label: "✨ 힙플레이스·디저트" },
-  { value: "quiet", label: "☕️ 조용한 미팅" },
+  { value: "remote", label: "💻 자유 외근·작업" },
+  { value: "quiet", label: "☕️ 조용한 힐링" },
 ];
 
 const AXIS_TAB_META: Record<FeedAxis, { label: string; sub: string }> = {
@@ -32,14 +35,15 @@ const AXIS_TAB_META: Record<FeedAxis, { label: string; sub: string }> = {
 
 const EMPTY_MESSAGES: Record<FeedAxis, Record<string, string[]>> = {
   food: {
-    lunch: ["아직 점심으로 남긴 리뷰가 없어요."],
+    lunch: ["아직 든든한 점심으로 남긴 리뷰가 없어요."],
+    light: ["아직 가벼운 점심으로 분류된 곳이 없어요.", "/admin에서 대표 메뉴에 샐러드·포케·샌드위치·국수 같은 키워드를 적어두면 이 필터에 자동으로 잡혀요."],
     trendy: ["아직 관리자가 등록한 힙지로 트렌드 핫플이 없어요.", "/admin에서 20대 트렌드를 켜보세요!"],
-    client: ["아직 이 상황에 맞는 리뷰가 없어요.", "첫 리뷰를 남겨서 채워보세요!"],
     dinner: ["아직 저녁·회식으로 남긴 리뷰가 없어요."],
+    client: ["아직 이 상황에 맞는 리뷰가 없어요.", "첫 리뷰를 남겨서 채워보세요!"],
   },
   style: {
-    remote: ["아직 외근하기 좋은 곳으로 남긴 리뷰가 없어요."],
     trendy: ["아직 관리자가 등록한 힙플레이스·디저트 핫플이 없어요.", "/admin에서 20대 트렌드를 켜보세요!"],
+    remote: ["아직 콘센트가 확인된 카페가 없어요.", "리뷰 쓸 때 콘센트 여부를 알려주시면 이 필터에 반영돼요!"],
     quiet: ["아직 '조용함'이 확인된 카페가 없어요.", "리뷰 쓸 때 살짝 알려주세요!"],
   },
 };
@@ -48,10 +52,10 @@ function isValidAxis(v: string | undefined): v is FeedAxis {
   return v === "food" || v === "style";
 }
 function isValidFoodFilter(v: string | undefined): v is FoodFilter {
-  return v === "lunch" || v === "trendy" || v === "client" || v === "dinner";
+  return v === "lunch" || v === "light" || v === "trendy" || v === "dinner" || v === "client";
 }
 function isValidStyleFilter(v: string | undefined): v is StyleFilter {
-  return v === "remote" || v === "trendy" || v === "quiet";
+  return v === "trendy" || v === "remote" || v === "quiet";
 }
 
 function axisHref(axis: FeedAxis): string {
