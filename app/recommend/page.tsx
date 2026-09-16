@@ -3,6 +3,7 @@ import styles from "./recommend.module.css";
 import RecommendInput from "./recommend-input";
 import DecideButton from "./decide-button";
 import { simplifyCategory, fallbackImage } from "../feed-display";
+import { MascotBubble } from "../components/mascot-bubble";
 import {
   getRecommendations,
   getPairedCafe,
@@ -48,7 +49,7 @@ function facilityHighlight(situation: Situation, c: RecommendCandidate): string 
 
 function buildTimelineBanner(
   top: RecommendCandidate
-): { warn: boolean; text: string } {
+): { warn: boolean; text: string; catLine: string } {
   const now = new Date();
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Seoul",
@@ -66,6 +67,7 @@ function buildTimelineBanner(
     return {
       warn: false,
       text: `⏱️ 예상 총 소요시간 ${top.total_minutes}분 (왕복 도보 ${top.round_trip_minutes}분 + ${waitLabel} 대기 ${top.wait_minutes}분 + 식사 ${top.meal_minutes}분)`,
+      catLine: "지금은 점심시간이 아니다냥~ 여유롭게 골라도 된다냥 😽",
     };
   }
 
@@ -77,11 +79,13 @@ function buildTimelineBanner(
     return {
       warn: false,
       text: `⏱️ 총 소요 시간 ${top.total_minutes}분 — 1시 회의 ${diff}분 전에 안전하게 복귀할 수 있어요!`,
+      catLine: `1시 회의 ${diff}분 전 복귀 보장이다냥! 밥 먹고 바로 앞 카페에서 커피 한잔하고 오라냥 🐾`,
     };
   }
   return {
     warn: true,
     text: `⏱️ 총 소요 시간 ${top.total_minutes}분 — 지금 출발하면 1시보다 약 ${-diff}분 늦을 수 있어요.`,
+    catLine: `지금 출발하면 1시보다 약 ${-diff}분 늦을 수 있다냥! 서두르라냥 🏃`,
   };
 }
 
@@ -147,9 +151,12 @@ export default async function RecommendPage({
       )}
 
       {top && banner && (
-        <div className={banner.warn ? styles.timelineBannerWarn : styles.timelineBanner}>
-          {banner.text}
-        </div>
+        <>
+          <div className={banner.warn ? styles.timelineBannerWarn : styles.timelineBanner}>
+            {banner.text}
+          </div>
+          <MascotBubble mood="excited" message={banner.catLine} />
+        </>
       )}
 
       <div className={styles.resultList}>

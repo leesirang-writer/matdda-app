@@ -1,0 +1,161 @@
+/* "맛멋냥" 마스코트 관련 공용 스타일 — 메인 피드 배너, 정적 말풍선,
+   바운스 애니메이션을 여기 한 곳에 모아둔다. globals.css의 색상 토큰을
+   그대로 재사용해 기존 보라(--accent-purple) 톤과 어울리게 맞췄다. */
+
+/* ---------- 메인 피드 최상단 배너 (클라이언트, 인터랙션 있음) ---------- */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent-purple-soft), #eae4fb);
+  border: 1px solid #e2d9fb;
+}
+
+.catButton {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 50%;
+}
+.catButton:focus-visible {
+  outline: 2px solid var(--accent-purple);
+  outline-offset: 3px;
+}
+
+.catBanner {
+  width: 64px;
+  height: 64px;
+  display: block;
+}
+
+.bounce {
+  animation: mascotBounce 0.55s ease;
+}
+
+@keyframes mascotBounce {
+  0% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10px);
+  }
+  55% {
+    transform: translateY(0);
+  }
+  75% {
+    transform: translateY(-4px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.bannerBubble {
+  position: relative;
+  flex: 1;
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.bannerBubble::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 7px 8px 7px 0;
+  border-style: solid;
+  border-color: transparent #fff transparent transparent;
+}
+
+.bannerCta {
+  flex-shrink: 0;
+  background: var(--accent-purple);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.bannerCta:hover {
+  background: var(--accent-purple-dark);
+}
+
+/* ---------- 정적 말풍선 (서버 컴포넌트에서도 사용 가능) ---------- */
+.bubbleRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.catMd {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+.catSm {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  margin: 0 auto 10px;
+  display: block;
+}
+
+.bubble {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+  text-align: left;
+}
+.bubble::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px 7px 6px 0;
+  border-style: solid;
+  border-color: transparent var(--border-subtle) transparent transparent;
+}
+.bubble::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px 7px 6px 0;
+  border-style: solid;
+  border-color: transparent #fff transparent transparent;
+}
+
+@media (max-width: 720px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+  .bannerCta {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+}

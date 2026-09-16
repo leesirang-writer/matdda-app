@@ -25,6 +25,10 @@ import {
 } from "./feed-display";
 import { castQuickVote } from "./feed-vote-actions";
 import { QuickTipModal } from "./quick-tip-modal";
+import { MascotBanner } from "./components/mascot-banner";
+import { MascotBubble } from "./components/mascot-bubble";
+import { CatMascot } from "./components/cat-mascot";
+import mascotStyles from "./components/mascot.module.css";
 
 export type AxisTab = {
   value: "food" | "style";
@@ -276,6 +280,13 @@ export default function FeedBrowser({
         </aside>
 
         <main className={styles.main}>
+          {/* 2026-09-16: 마스코트 "맛멋냥" 배너 — 메인 피드 최상단, 사용자
+              요청으로 신규 추가. 사이드바의 기존 recommendBanner 텍스트
+              링크는 그대로 둔다(스크롤해도 항상 보이는 보조 CTA 역할이라
+              중복이라기보다 상호 보완으로 판단) — 필요하면 말씀해주시면
+              둘 중 하나로 정리하겠습니다. */}
+          <MascotBanner />
+
           <div className={styles.mainHeaderRow}>
             <div className={styles.resultCount}>
               등록 장소 <strong>{filteredSorted.length}곳</strong>
@@ -296,6 +307,7 @@ export default function FeedBrowser({
 
           {serverEmpty && (
             <div className={styles.emptyState}>
+              <CatMascot mood="curious" className={mascotStyles.catSm} />
               {emptyMessages.map((line, i) => (
                 <p key={i}>{line}</p>
               ))}
@@ -304,7 +316,10 @@ export default function FeedBrowser({
 
           {clientEmpty && (
             <div className={styles.emptyState}>
-              <p>검색 조건에 맞는 장소가 없어요.</p>
+              <MascotBubble
+                mood="curious"
+                message="어라? 이 조건엔 아직 아는 맛집이 없다냥! 다른 거리나 테마를 골라달라냥 🔍"
+              />
               <p>검색어나 거리 필터를 바꿔보세요.</p>
             </div>
           )}
