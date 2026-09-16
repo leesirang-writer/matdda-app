@@ -202,6 +202,39 @@
   padding: 5px 11px;
 }
 
+/* 2026-09-16(17차): "동료 N명이 재방문을 추천했어요" 통계 블록 — 긴 리뷰
+   목록 대신 미쉐린/블루리본 서베이 톤으로 먼저 보여주는 요약. */
+.statsBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--accent-purple-soft);
+  border-radius: 16px;
+}
+.statsEmoji {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.statsTextWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.statsHeadline {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent-purple-dark);
+  line-height: 1.4;
+}
+.statsSub {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.tipsTitle {
+  margin-top: 18px;
+}
+
 .emptyReviews {
   padding: 40px 16px;
   text-align: center;
@@ -219,10 +252,13 @@
   gap: 14px;
 }
 
+/* 2026-09-16(17차): "사내 꿀팁 모음(포스트잇)" 톤 — 왼쪽에 따뜻한 색
+   포인트 바를 둬서 메모/포스트잇 느낌을 낸다. 카드 구조 자체는 그대로. */
 .reviewCard {
   position: relative;
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-warm);
   border-radius: 14px;
   padding: 14px;
   display: flex;
@@ -290,6 +326,8 @@
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
   background: var(--accent-purple);
   color: #fff;
+  border: none;
+  cursor: pointer;
   font-family: var(--font-display), sans-serif;
   font-weight: 700;
   font-size: 15px;

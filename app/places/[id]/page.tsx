@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import styles from "./place-detail.module.css";
 import { getPlaceDetail, getPlaceReviews, type PlaceReview } from "./place-queries";
 import { simplifyCategory } from "@/app/feed-queries";
 import PlaceHeaderActions from "./place-header-actions";
+import PlaceTipLauncher from "./place-tip-launcher";
 
 const PURPOSE_LABEL: Record<string, string> = {
   client: "👔 클라이언트 접대",
@@ -99,18 +99,52 @@ export default async function PlaceDetailPage({
         )}
 
         <section className={styles.reviewsSection}>
-          <div className={styles.reviewsHeader}>
-            <h2 className={styles.sectionTitle}>사내 동료 리뷰</h2>
-            {place.review_count > 0 && (
-              <span className={styles.againBadge}>또 갈래요 {place.again_rate ?? 0}%</span>
-            )}
-          </div>
+          {/* 2026-09-16(17차): 게시판형 긴 리뷰 목록 대신 미쉐린/블루리본
+              서베이 톤의 통계 요약을 먼저 보여준다 — "N명이 재방문을
+              추천했어요" 식으로, 리뷰가 없어도 총무팀 픽이면 그 신뢰
+              신호를, 그것도 없으면 참여를 독려하는 문구를 정직하게 보여줌
+              (실패처럼 느껴지는 "0건" 표현은 쓰지 않음). */}
+          {place.again_count > 0 ? (
+            <div className={styles.statsBlock}>
+              <span className={styles.statsEmoji}>🔥</span>
+              <div className={styles.statsTextWrap}>
+                <span className={styles.statsHeadline}>
+                  동료 {place.again_count}명이 재방문을 추천했어요
+                </span>
+                <span className={styles.statsSub}>
+                  재방문율 {place.again_rate ?? 0}% · 참여 {place.review_count}건
+                </span>
+              </div>
+            </div>
+          ) : place.is_staff_pick ? (
+            <div className={styles.statsBlock}>
+              <span className={styles.statsEmoji}>🎖️</span>
+              <div className={styles.statsTextWrap}>
+                <span className={styles.statsHeadline}>총무팀이 1차로 확인한 곳이에요</span>
+                <span className={styles.statsSub}>
+                  아직 동료 반응은 쌓이는 중이에요 — 첫 반응을 남겨보세요!
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.statsBlock}>
+              <span className={styles.statsEmoji}>🙋</span>
+              <div className={styles.statsTextWrap}>
+                <span className={styles.statsHeadline}>아직 반응이 쌓이는 중이에요</span>
+                <span className={styles.statsSub}>
+                  첫 반응(또 갈래요/굳이)을 남기는 동료가 되어보세요!
+                </span>
+              </div>
+            </div>
+          )}
+
+          <h2 className={`${styles.sectionTitle} ${styles.tipsTitle}`}>🗒️ 사내 꿀팁 모음</h2>
 
           {reviews.length === 0 ? (
             <div className={styles.emptyReviews}>
-              아직 등록된 사내 리뷰가 없어요.
+              아직 남겨진 꿀팁이 없어요.
               <br />
-              첫 번째 족보를 남겨주세요!
+              한 줄 팁을 가장 먼저 남겨보세요!
             </div>
           ) : (
             <div className={styles.reviewList}>
@@ -124,9 +158,7 @@ export default async function PlaceDetailPage({
         <div className={styles.bottomSpacer} />
       </div>
 
-      <Link href={`/reviews/new?place_id=${place.id}`} className={styles.ctaBar}>
-        ✍️ 이 장소에 리뷰 남기기
-      </Link>
+      <PlaceTipLauncher placeId={place.id} placeName={place.name} placeType={place.place_type} />
     </div>
   );
 }
@@ -169,7 +201,7 @@ function ReviewCard({ review }: { review: PlaceReview }) {
         <span className={styles.verdictTag}>{VERDICT_LABEL[review.verdict] ?? review.verdict}</span>
       </div>
       <span className={styles.purposeTag}>{PURPOSE_LABEL[review.purpose] ?? review.purpose}</span>
-      {review.content && <p className={styles.reviewContent}>{review.content}</p>}
+      <p className={styles.reviewContent}>{review.content}</p>
       <div className={styles.reviewMeta}>
         {review.price_per_person != null && (
           <span>1인 {review.price_per_person.toLocaleString()}원</span>

@@ -65,6 +65,21 @@
   color: var(--text-primary);
 }
 
+/* 2026-09-16(16차): "KPR의 점심시간은 90분이다" 브랜드 카피 한 줄.
+   GNB 바로 아래 얇은 서브 배너로 — 기존 레이아웃/컴포넌트 구조는 건드리지
+   않고 순수 텍스트 줄 하나만 추가. */
+.taglineBar {
+  padding: 7px 32px;
+  background: var(--accent-purple-soft);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
+  color: var(--accent-purple-dark);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .gnbSearchWrap {
   flex: 1;
   max-width: 560px;
@@ -150,6 +165,7 @@
   white-space: nowrap;
   box-shadow: var(--shadow-soft);
   transition: background 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
 }
 .gnbWriteBtn:hover {
   background: var(--accent-purple-dark);
@@ -272,35 +288,6 @@
   border-color: var(--accent-purple);
   color: var(--accent-purple);
   font-weight: 700;
-}
-
-.filterItem {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.mealWeightChips {
-  display: flex;
-  gap: 6px;
-  padding-left: 2px;
-}
-.chip {
-  border: 1px solid var(--border-subtle);
-  background: #fff;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-.chipActive {
-  composes: chip;
-  background: var(--accent-purple);
-  border-color: var(--accent-purple);
-  color: #fff;
 }
 
 /* ---------- 메인 콘텐츠 ---------- */
@@ -497,17 +484,32 @@
   background: transparent;
   border: 1px dashed var(--border-subtle-strong);
 }
+/* 2026-09-16(17차): 리뷰가 없어도 "총무팀이 1차 확인했다"는 긍정적 신호 —
+   badgePending("아직 리뷰 없음")을 대체하는 용도로, 부정적 문구 대신 쓴다. */
+.badgeStaffPick {
+  composes: badge;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-dark));
+  border-color: transparent;
+  font-weight: 700;
+}
 
 /* 카드 하단 푸터 — 리뷰 유무와 무관하게 항상 노출된다(카카오맵 링크가
    카드 전체를 감싸는 <Link> 안에 중첩되지 않도록, 클릭 가능 영역과는
-   별개의 형제 요소로 둔다). */
+   별개의 형제 요소로 둔다). 2026-09-16(17차)부터 통계 줄(cardFooterTop) +
+   원터치 반응 줄(voteRow), 두 줄 구성으로 늘어났다. */
 .cardFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.cardFooterTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-subtle);
 }
 .footerStats {
   font-size: 12px;
@@ -530,6 +532,59 @@
   white-space: nowrap;
 }
 
+/* 원터치 반응 줄 — "1초 반응 + 15초 꿀팁" 전환(17차)의 핵심 UI. 로그인/
+   팝업 없이 바로 눌리는 두 버튼과, 부담 없는 "+ 꿀팁" 트리거로 구성. */
+.voteRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.voteButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.voteButton:hover:not(:disabled) {
+  border-color: var(--accent-purple);
+}
+.voteButtonAgain.voted {
+  background: var(--accent-purple-soft);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple-dark);
+}
+.voteButton.voted:not(.voteButtonAgain) {
+  background: var(--surface-bg);
+  border-color: var(--border-subtle-strong);
+  color: var(--text-secondary);
+}
+.voteButton:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+.tipLink {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent-purple);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
 .emptyState {
   padding: 80px 24px;
   text-align: center;
@@ -542,52 +597,4 @@
 }
 .emptyState p {
   margin: 0 0 4px;
-}
-
-.emptyStateCard {
-  padding: 56px 24px;
-  text-align: center;
-  background: var(--surface-card);
-  border: 1px dashed var(--border-subtle-strong);
-  border-radius: 16px;
-}
-.emptyStateIcon {
-  font-size: 36px;
-  line-height: 1;
-  margin-bottom: 14px;
-}
-.emptyStateTitle {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 20px;
-}
-.emptyStateActions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-.emptyStateBtn {
-  border: 1px solid var(--accent-purple);
-  background: var(--accent-purple);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: 10px;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s ease;
-}
-.emptyStateBtn:hover {
-  background: var(--accent-purple-dark);
-}
-.emptyStateBtnGhost {
-  composes: emptyStateBtn;
-  background: #fff;
-  color: var(--accent-purple);
-}
-.emptyStateBtnGhost:hover {
-  background: var(--accent-purple-soft);
 }

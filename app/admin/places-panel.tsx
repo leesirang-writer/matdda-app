@@ -156,6 +156,10 @@ function NewPlaceForm({ onDone }: { onDone: () => void }) {
         <input type="checkbox" name="is_trendy" className={styles.trendyCheckbox} />
         🔥 20대 트렌드 핫플로 표시
       </label>
+      <label className={styles.trendyToggleLabel}>
+        <input type="checkbox" name="is_staff_pick" className={styles.trendyCheckbox} />
+        🎖️ 총무팀 픽으로 표시 (리뷰 없어도 신뢰 배지 노출)
+      </label>
 
       <button type="submit" className={styles.saveButton}>
         새 장소 등록
@@ -221,6 +225,15 @@ function PlaceRow({ place }: { place: AdminPlace }) {
             className={styles.trendyCheckbox}
           />
           🔥 20대 트렌드 핫플로 표시
+        </label>
+        <label className={styles.trendyToggleLabel}>
+          <input
+            type="checkbox"
+            name="is_staff_pick"
+            defaultChecked={place.is_staff_pick}
+            className={styles.trendyCheckbox}
+          />
+          🎖️ 총무팀 픽으로 표시 (리뷰 없어도 신뢰 배지 노출)
         </label>
 
         <button type="submit" className={styles.saveButton}>

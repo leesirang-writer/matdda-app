@@ -17,8 +17,11 @@ export type PlaceDetail = {
   is_quiet: boolean | null;
   long_stay_ok: boolean | null;
   review_count: number;
+  again_count: number;
   again_rate: number | null;
   avg_price_per_person: number | null;
+  /** 관리자가 /admin에서 켠 "총무팀 픽" 여부 — 리뷰가 없어도 주는 신뢰 신호. */
+  is_staff_pick: boolean;
 };
 
 export type PlaceReview = {
@@ -27,8 +30,7 @@ export type PlaceReview = {
   author_department: string | null;
   purpose: string;
   verdict: string;
-  // 한 줄 꿀팁은 이제 선택 입력이라(8차) 비어있을 수 있다.
-  content: string | null;
+  content: string;
   price_per_person: number | null;
   wait_minutes: number | null;
   party_size: number | null;
@@ -49,7 +51,9 @@ export async function getPlaceDetail(id: string): Promise<PlaceDetail | null> {
       pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.kakao_url,
       pl.walk_minutes, pl.place_type, pl.has_room, pl.max_party_size,
       pl.reservation_required, pl.has_parking, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
+      pl.is_staff_pick,
       coalesce(ps.review_count, 0) as review_count,
+      coalesce(ps.again_count, 0) as again_count,
       ps.again_rate,
       ps.avg_price_per_person
     from places pl
@@ -76,37 +80,40 @@ export async function getPlaceDetail(id: string): Promise<PlaceDetail | null> {
     has_outlet: (row.has_outlet as boolean) ?? null,
     is_quiet: (row.is_quiet as boolean) ?? null,
     long_stay_ok: (row.long_stay_ok as boolean) ?? null,
+    is_staff_pick: (row.is_staff_pick as boolean) ?? false,
     review_count: toNumOrNull(row.review_count) ?? 0,
+    again_count: toNumOrNull(row.again_count) ?? 0,
     again_rate: toNumOrNull(row.again_rate),
     avg_price_per_person: toNumOrNull(row.avg_price_per_person),
   };
 }
 
-// 작성자 표시명: 2026-09-09(8차, 완전 익명 리뷰 전환) 이후 새 리뷰는
-// r.author_dept/r.author_name에 곧바로 저장된다("부서 · 닉네임 또는 익명의
-// 동료" 형태). author_id가 없는(=이메일 로그인 없이 작성된) 행이 기본이고,
-// 옛 이메일 로그인 시절 리뷰(author_id만 있고 author_dept/author_name은
-// 비어있음)만 profiles를 left join해서 예전 방식(실명/별명 표시 선택)으로
-// 채워준다.
+// 작성자 표시명: display_mode가 'nickname'이고 실제 별명이 있으면 별명을,
+// 그 외엔 항상 실명을 보여준다 (리뷰 작성 시점의 선택을 그대로 반영).
+//
+// 2026-09-16(17차): 원터치 반응([🔥 또 갈래요]/[🤔 굳이])은 content가
+// null인 "텍스트 없는 반응"으로 저장된다(스키마 12-2, feed-vote-actions.ts
+// 참고) — 그런 행까지 이 목록(= 상세 페이지 "사내 꿀팁 모음")에 나오면
+// 빈 문단이 있는 것처럼 보이므로, 실제로 한 줄이라도 적힌 것만 가져온다.
+// 재방문율/참여 인원 같은 "통계"는 getPlaceDetail()의 place_stats 집계가
+// 원터치 반응까지 전부 포함해서 이미 정직하게 계산해준다.
 export async function getPlaceReviews(id: string): Promise<PlaceReview[]> {
   const rows = await sql`
     select
       r.id,
-      coalesce(
-        nullif(r.author_name, ''),
-        case
-          when r.display_mode = 'nickname' and pr.nickname is not null and pr.nickname <> ''
-          then pr.nickname
-          else pr.name
-        end
-      ) as author_display_name,
-      coalesce(nullif(r.author_dept, ''), pr.department) as author_department,
+      case
+        when r.display_mode = 'nickname' and pr.nickname is not null and pr.nickname <> ''
+        then pr.nickname
+        else pr.name
+      end as author_display_name,
+      pr.department as author_department,
       r.purpose, r.verdict, r.content,
       r.price_per_person, r.wait_minutes, r.party_size,
       r.created_at
     from reviews r
-    left join profiles pr on pr.id = r.author_id
+    join profiles pr on pr.id = r.author_id
     where r.place_id = ${id} and r.status = 'published'
+      and r.content is not null and r.content <> ''
     order by r.created_at desc
   `;
   return (rows as Record<string, unknown>[]).map((row) => ({
@@ -115,7 +122,7 @@ export async function getPlaceReviews(id: string): Promise<PlaceReview[]> {
     author_department: (row.author_department as string) ?? null,
     purpose: row.purpose as string,
     verdict: row.verdict as string,
-    content: (row.content as string) ?? null,
+    content: row.content as string,
     price_per_person: toNumOrNull(row.price_per_person),
     wait_minutes: toNumOrNull(row.wait_minutes),
     party_size: toNumOrNull(row.party_size),

@@ -1,10 +1,13 @@
 import { sql } from "@/lib/db";
 import {
   type FeedPlace,
+  type PlaceLite,
+  type VotePurpose,
   simplifyCategory,
   fallbackImage,
   thumbnailFor,
   trendyBadgeLabel,
+  inferVotePurpose,
 } from "./feed-display";
 
 // 표시용 타입/헬퍼(FeedPlace, simplifyCategory, thumbnailFor 등)는 DB에 전혀
@@ -13,8 +16,8 @@ import {
 // 컴포넌트(feed-browser.tsx)는 반드시 feed-display.ts에서 직접 import할 것 —
 // 이 파일을 client component에서 import하면 아래 neon() 호출이 브라우저
 // 번들에 딸려 들어가 즉시 에러가 난다.
-export type { FeedPlace };
-export { simplifyCategory, fallbackImage, thumbnailFor, trendyBadgeLabel };
+export type { FeedPlace, PlaceLite, VotePurpose };
+export { simplifyCategory, fallbackImage, thumbnailFor, trendyBadgeLabel, inferVotePurpose };
 
 // 2대 축: 맛따라(밥집) / 멋따라(카페·공간). 축에 따라 보여주는 장소(place_type)와
 // 상황 필터 종류 자체가 다르다. "전체" 탭은 없앴고, 축을 누르면 바로 그 축의
@@ -93,8 +96,20 @@ function normalizePlaceRow(row: Record<string, unknown>): FeedPlace {
     signature_menu: (row.signature_menu as string) ?? null,
     image_url: (row.image_url as string) ?? null,
     is_trendy: (row.is_trendy as boolean) ?? false,
+    is_staff_pick: (row.is_staff_pick as boolean) ?? false,
+    again_count: toNumOrNull(row.again_count) ?? 0,
+    no_count: toNumOrNull(row.no_count) ?? 0,
   };
 }
+
+// 2026-09-16(17차): 방문 목적과 무관하게 "이 장소 전체"에 달린 원터치 반응
+// 수(또 갈래요/굳이)를 매 쿼리 브랜치마다 함께 집계해야 한다. 기존의
+// `agg`(방문 목적별 review_count/again_rate)는 그대로 두고, 카드 하단
+// 원터치 버튼에 보여줄 숫자만 별도의 lateral join(`vote`)으로 더한다 — 두
+// 집계의 기준(목적별 vs 전체)이 다르므로 섞지 않는다. `sql.unsafe()`를
+// verify-app의 로컬 pg shim이 지원하지 않아 공통 SQL 조각을 변수로 묶어
+// 재사용할 수 없어서(recommend-queries.ts 7차 관례와 동일한 이유), 아래
+// `vote` lateral join은 각 쿼리 브랜치마다 그대로 반복해서 적혀 있다.
 
 // 아래 각 쿼리는 "그 장소의 대표 리뷰 사진 1장"을 고르는 photo lateral join을
 // 반복해서 쓰고 있다 (가장 최근에 발행된 리뷰의 첫 번째 사진 우선). select
@@ -110,11 +125,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
         select
           pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
           pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-          pl.signature_menu, pl.image_url, pl.is_trendy,
+          pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
           coalesce(agg.review_count, 0) as review_count,
           agg.again_rate,
           agg.avg_price_per_person,
           photo.storage_path as thumbnail_url,
+          coalesce(vote.total_again_count, 0) as again_count,
+          coalesce(vote.total_no_count, 0) as no_count,
           case
             when (coalesce(pl.category, '') || ' ' || coalesce(pl.signature_menu, '')) ~* ${DINNER_PATTERN}
             then 0 else 1
@@ -136,6 +153,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
           order by r2.created_at desc, rp.sort_order asc
           limit 1
         ) photo on true
+        left join lateral (
+          select
+            count(*) filter (where rv.verdict = 'again') as total_again_count,
+            count(*) filter (where rv.verdict = 'no') as total_no_count
+          from reviews rv
+          where rv.place_id = pl.id and rv.status = 'published'
+        ) vote on true
         where pl.place_type in ('meal', 'both')
         order by coalesce(agg.review_count, 0) desc, dinner_rank asc, pl.name asc
       `;
@@ -150,11 +174,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
         select
           pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
           pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-          pl.signature_menu, pl.image_url, pl.is_trendy,
+          pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
           agg.review_count,
           agg.again_rate,
           agg.avg_price_per_person,
-          photo.storage_path as thumbnail_url
+          photo.storage_path as thumbnail_url,
+          coalesce(vote.total_again_count, 0) as again_count,
+          coalesce(vote.total_no_count, 0) as no_count
         from places pl
         join lateral (
           select
@@ -173,6 +199,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
           order by r2.created_at desc, rp.sort_order asc
           limit 1
         ) photo on true
+        left join lateral (
+          select
+            count(*) filter (where rv.verdict = 'again') as total_again_count,
+            count(*) filter (where rv.verdict = 'no') as total_no_count
+          from reviews rv
+          where rv.place_id = pl.id and rv.status = 'published'
+        ) vote on true
         where pl.place_type in ('meal', 'both')
         order by agg.review_count desc, pl.name asc
       `;
@@ -185,11 +218,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
         select
           pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
           pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-          pl.signature_menu, pl.image_url, pl.is_trendy,
+          pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
           coalesce(agg.review_count, 0) as review_count,
           agg.again_rate,
           agg.avg_price_per_person,
-          photo.storage_path as thumbnail_url
+          photo.storage_path as thumbnail_url,
+          coalesce(vote.total_again_count, 0) as again_count,
+          coalesce(vote.total_no_count, 0) as no_count
         from places pl
         left join lateral (
           select
@@ -207,6 +242,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
           order by r2.created_at desc, rp.sort_order asc
           limit 1
         ) photo on true
+        left join lateral (
+          select
+            count(*) filter (where rv.verdict = 'again') as total_again_count,
+            count(*) filter (where rv.verdict = 'no') as total_no_count
+          from reviews rv
+          where rv.place_id = pl.id and rv.status = 'published'
+        ) vote on true
         where pl.place_type in ('meal', 'both') and pl.is_trendy = true
         order by pl.name asc
       `;
@@ -220,11 +262,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
         select
           pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
           pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-          pl.signature_menu, pl.image_url, pl.is_trendy,
+          pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
           coalesce(agg.review_count, 0) as review_count,
           agg.again_rate,
           agg.avg_price_per_person,
-          photo.storage_path as thumbnail_url
+          photo.storage_path as thumbnail_url,
+          coalesce(vote.total_again_count, 0) as again_count,
+          coalesce(vote.total_no_count, 0) as no_count
         from places pl
         left join lateral (
           select
@@ -242,6 +286,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
           order by r2.created_at desc, rp.sort_order asc
           limit 1
         ) photo on true
+        left join lateral (
+          select
+            count(*) filter (where rv.verdict = 'again') as total_again_count,
+            count(*) filter (where rv.verdict = 'no') as total_no_count
+          from reviews rv
+          where rv.place_id = pl.id and rv.status = 'published'
+        ) vote on true
         where pl.place_type in ('meal', 'both')
           and (coalesce(pl.category, '') || ' ' || coalesce(pl.signature_menu, '')) ~* ${LIGHT_LUNCH_PATTERN}
           and (coalesce(pl.category, '') || ' ' || coalesce(pl.signature_menu, '')) !~* '칼국수'
@@ -259,11 +310,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
       select
         pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
         pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-        pl.signature_menu, pl.image_url, pl.is_trendy,
+        pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
         coalesce(agg.review_count, 0) as review_count,
         agg.again_rate,
         agg.avg_price_per_person,
         photo.storage_path as thumbnail_url,
+        coalesce(vote.total_again_count, 0) as again_count,
+        coalesce(vote.total_no_count, 0) as no_count,
         case
           when (coalesce(pl.category, '') || ' ' || coalesce(pl.signature_menu, '')) ~* ${HEARTY_LUNCH_PATTERN}
           then 0 else 1
@@ -285,6 +338,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
         order by r2.created_at desc, rp.sort_order asc
         limit 1
       ) photo on true
+      left join lateral (
+        select
+          count(*) filter (where rv.verdict = 'again') as total_again_count,
+          count(*) filter (where rv.verdict = 'no') as total_no_count
+        from reviews rv
+        where rv.place_id = pl.id and rv.status = 'published'
+      ) vote on true
       where pl.place_type in ('meal', 'both')
         and not (
           (coalesce(pl.category, '') || ' ' || coalesce(pl.signature_menu, '')) ~* ${LIGHT_LUNCH_PATTERN}
@@ -303,11 +363,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
       select
         pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
         pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-        pl.signature_menu, pl.image_url, pl.is_trendy,
+        pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
         coalesce(agg.review_count, 0) as review_count,
         agg.again_rate,
         agg.avg_price_per_person,
-        photo.storage_path as thumbnail_url
+        photo.storage_path as thumbnail_url,
+        coalesce(vote.total_again_count, 0) as again_count,
+        coalesce(vote.total_no_count, 0) as no_count
       from places pl
       left join lateral (
         select
@@ -325,6 +387,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
         order by r2.created_at desc, rp.sort_order asc
         limit 1
       ) photo on true
+      left join lateral (
+        select
+          count(*) filter (where rv.verdict = 'again') as total_again_count,
+          count(*) filter (where rv.verdict = 'no') as total_no_count
+        from reviews rv
+        where rv.place_id = pl.id and rv.status = 'published'
+      ) vote on true
       where pl.place_type in ('cafe', 'both') and pl.is_trendy = true
       order by pl.name asc
     `;
@@ -338,11 +407,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
       select
         pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
         pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-        pl.signature_menu, pl.image_url, pl.is_trendy,
+        pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
         coalesce(ps.review_count, 0) as review_count,
         ps.again_rate,
         ps.avg_price_per_person,
-        photo.storage_path as thumbnail_url
+        photo.storage_path as thumbnail_url,
+        coalesce(ps.again_count, 0) as again_count,
+        coalesce(ps.no_count, 0) as no_count
       from places pl
       left join place_stats ps on ps.place_id = pl.id
       left join lateral (
@@ -367,11 +438,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
     select
       pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.walk_minutes, pl.kakao_url,
       pl.place_type, pl.has_room, pl.max_party_size, pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-      pl.signature_menu, pl.image_url, pl.is_trendy,
+      pl.signature_menu, pl.image_url, pl.is_trendy, pl.is_staff_pick,
       coalesce(agg.review_count, 0) as review_count,
       agg.again_rate,
       agg.avg_price_per_person,
-      photo.storage_path as thumbnail_url
+      photo.storage_path as thumbnail_url,
+      coalesce(vote.total_again_count, 0) as again_count,
+      coalesce(vote.total_no_count, 0) as no_count
     from places pl
     left join lateral (
       select
@@ -389,6 +462,13 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
       order by r2.created_at desc, rp.sort_order asc
       limit 1
     ) photo on true
+    left join lateral (
+      select
+        count(*) filter (where rv.verdict = 'again') as total_again_count,
+        count(*) filter (where rv.verdict = 'no') as total_no_count
+      from reviews rv
+      where rv.place_id = pl.id and rv.status = 'published'
+    ) vote on true
     where pl.place_type in ('cafe', 'both') and pl.has_outlet = true
     order by coalesce(agg.review_count, 0) desc, pl.name asc
   `;
@@ -406,4 +486,24 @@ export async function getFeedSummary(): Promise<{ place_count: number; review_co
     place_count: toNumOrNull(row.place_count) ?? 0,
     review_count: toNumOrNull(row.review_count) ?? 0,
   };
+}
+
+// 2026-09-16(17차): GNB "꿀팁 제보하기"가 장소를 직접 고르지 않고 열릴 때
+// (특정 카드 맥락 없이) 쓰는 가벼운 전체 장소 목록. reviews/new/page.tsx의
+// 기존 장소 검색 쿼리와 같은 모양이지만, 무거운 리뷰 폼이 아니라 새
+// 꿀팁 모달(quick-tip-modal.tsx)의 검색 단계에서 쓴다.
+export async function getAllPlacesLite(): Promise<PlaceLite[]> {
+  const rows = await sql`
+    select id, name, place_type, category, road_address, walk_minutes
+    from places
+    order by name asc
+  `;
+  return (rows as Record<string, unknown>[]).map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    place_type: row.place_type as PlaceLite["place_type"],
+    category: (row.category as string) ?? null,
+    road_address: (row.road_address as string) ?? null,
+    walk_minutes: toNumOrNull(row.walk_minutes),
+  }));
 }

@@ -5,7 +5,7 @@
 // 브라우저 번들에 딸려 들어가 즉시 깨진다.
 
 export type Situation = "trendy" | "client" | "speed" | "remote";
-export type TimeBudgetKey = "40" | "50" | "80";
+export type TimeBudgetKey = "45" | "90";
 export type PriceBudgetKey = "10000" | "15000" | "30000plus";
 
 export const SITUATION_OPTIONS: { value: Situation; label: string; desc: string }[] = [
@@ -15,10 +15,13 @@ export const SITUATION_OPTIONS: { value: Situation; label: string; desc: string 
   { value: "remote", label: "💻 외근/혼밥", desc: "조용히 앉아있기 좋은 곳" },
 ];
 
+// 2026-09-16(16차): "KPR의 점심시간은 90분이다" 컨셉 — 기존 3단계(40/50/80분)를
+// 걷어내고 실제 사내 제도(90분 점심)에 맞춘 2단계로 정리. "90"을 기본값으로
+// 민다(recommend-input.tsx의 초기 state 참고). 로직(timeBudgetMinutes 계산,
+// recommend-queries.ts의 필터링)은 그대로 재사용 — 값만 바뀜.
 export const TIME_BUDGET_OPTIONS: { value: TimeBudgetKey; minutes: number; label: string }[] = [
-  { value: "40", minutes: 40, label: "⚡️ 40분 컷" },
-  { value: "50", minutes: 50, label: "🚶 50분 보통" },
-  { value: "80", minutes: 80, label: "☕️ 1시간 20분 여유" },
+  { value: "90", minutes: 90, label: "⭐️ KPR 90분 풀코스 (밥+카페)" },
+  { value: "45", minutes: 45, label: "⚡️ 바쁜 날 45분 컷" },
 ];
 
 export const PRICE_BUDGET_OPTIONS: { value: PriceBudgetKey; label: string }[] = [
@@ -31,7 +34,7 @@ export function isSituation(v: string | undefined): v is Situation {
   return v === "trendy" || v === "client" || v === "speed" || v === "remote";
 }
 export function isTimeBudget(v: string | undefined): v is TimeBudgetKey {
-  return v === "40" || v === "50" || v === "80";
+  return v === "45" || v === "90";
 }
 export function isPriceBudget(v: string | undefined): v is PriceBudgetKey {
   return v === "10000" || v === "15000" || v === "30000plus";

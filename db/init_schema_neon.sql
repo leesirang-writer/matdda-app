@@ -155,10 +155,10 @@ on conflict (name) do nothing;
 create table if not exists public.reviews (
   id               uuid primary key default gen_random_uuid(),
   place_id         uuid not null references public.places(id) on delete cascade,
-  author_id        uuid references public.profiles(id) on delete cascade,
+  author_id        uuid not null references public.profiles(id) on delete cascade,
   purpose          text not null check (purpose in ('client', 'remote_work', 'lunch', 'dinner', 'cafe')),
   verdict          text not null check (verdict in ('again', 'ok', 'no')),
-  content          text check (char_length(content) between 1 and 500),
+  content          text not null check (char_length(content) between 1 and 500),
   ai_summary       text,
   price_per_person integer check (price_per_person >= 0),
   wait_minutes     smallint check (wait_minutes >= 0),
@@ -166,13 +166,6 @@ create table if not exists public.reviews (
   visit_date       date,
   display_mode     text not null default 'name' check (display_mode in ('name', 'nickname')),
   status           text not null default 'published' check (status in ('published', 'hidden', 'reported')),
-  -- 2026-09-09(8차, 완전 익명 리뷰 전환): 사내 이메일 인증을 아예 없애면서
-  -- author_id(profiles 참조)가 더 이상 채워지지 않는다. 대신 제출 시점에
-  -- 입력한 소속 본부/팀과 닉네임(비웠으면 "익명의 동료")을 리뷰 행에 직접
-  -- 저장한다 — 그 결과 author_id는 옛 이메일 로그인 시절 리뷰에만 남아있는
-  -- "레거시" 컬럼이 된다.
-  author_dept      text,
-  author_name      text,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
@@ -192,13 +185,6 @@ alter table public.reviews add column if not exists display_mode text not null d
 alter table public.reviews add column if not exists status text not null default 'published';
 alter table public.reviews add column if not exists created_at timestamptz not null default now();
 alter table public.reviews add column if not exists updated_at timestamptz not null default now();
--- 익명 리뷰 전환(8차): 이메일 로그인이 없어졌으니 author_id를 더 이상 강제하지
--- 않는다(레거시 행은 계속 이 컬럼으로 profiles와 연결됨). content도 "한 줄
--- 꿀팁"이 선택 입력으로 바뀌어서 비어있을 수 있다.
-alter table public.reviews alter column author_id drop not null;
-alter table public.reviews alter column content drop not null;
-alter table public.reviews add column if not exists author_dept text;
-alter table public.reviews add column if not exists author_name text;
 
 create index if not exists idx_reviews_place on public.reviews (place_id);
 create index if not exists idx_reviews_author on public.reviews (author_id);
@@ -355,6 +341,63 @@ alter table if exists public.review_tags disable row level security;
 alter table if exists public.review_helpful_votes disable row level security;
 alter table if exists public.recommendation_logs disable row level security;
 alter table if exists public.courses disable row level security;
+
+-- ============================================================================
+-- 12. 2026-09-16(17차): "1초 반응 + 15초 꿀팁" 라이트 리뷰 전환
+--     — 게시판형 긴 리뷰 대신 원터치 반응(또 갈래요/굳이)과 선택적 한 줄
+--       팁으로 참여 장벽을 낮추기 위한 변경. 기존 reviews 테이블/뷰 구조는
+--       그대로 두고 아래 두 가지만 추가/완화한다(안전하게 재실행 가능).
+-- ============================================================================
+
+-- 12-1) "총무팀 픽" 배지 — 관리자(/admin)가 1차로 검증했다는 뜻으로 직접 켜는
+--       수동 큐레이션 표시. 리뷰가 아직 없는 곳도 "총무팀이 확인한 곳"이라는
+--       신뢰 신호를 줄 수 있게 한다(is_trendy와 동일한 방식의 관리자 토글).
+alter table public.places add column if not exists is_staff_pick boolean not null default false;
+
+-- 12-2) 한 줄 팁을 선택 사항으로 — 카드에서 바로 누르는 원터치 반응(또
+--       갈래요/굳이)에는 텍스트가 전혀 없을 수 있으므로, 기존 "1~500자
+--       필수" 제약을 "없거나(NULL) 500자 이하"로 완화한다. 이미 저장된
+--       기존 리뷰의 content 값은 전혀 건드리지 않고, 앞으로 들어올 값의
+--       제약만 느슨해진다.
+--       주의: content는 CHECK 제약과 별개로 컬럼 자체에 NOT NULL이 걸려
+--       있었다(최초 스키마 161번째 줄 `content text not null check (...)`).
+--       CHECK만 완화하고 이 컬럼 레벨 NOT NULL을 빼먹으면, 원터치 반응이
+--       content=null로 INSERT를 시도할 때마다 제약 위반으로 조용히
+--       실패한다(서버 액션이 에러를 삼키므로 화면상으론 멀쩡해 보임) —
+--       실제로 로컬 검증 중 이 버그로 반응이 전혀 저장되지 않는 걸 발견해서
+--       아래 줄을 추가했다. 반드시 두 문장을 같이 실행할 것.
+alter table public.reviews drop constraint if exists reviews_content_check;
+alter table public.reviews add constraint reviews_content_check
+  check (content is null or char_length(content) <= 500);
+alter table public.reviews alter column content drop not null;
+
+-- 12-3) place_stats 뷰에 no_count(= "굳이" 반응 수)를 추가. again_count는
+--       원래부터 있었음. Postgres는 create or replace view로 컬럼을
+--       "끝에 추가"하는 것만 허용하므로(중간에 끼워 넣으면 "cannot change
+--       name of view column" 에러) no_count를 맨 뒤에 둔다 — 컬럼 삭제/
+--       이름변경이 아니므로 이 방식으로 안전하게 재실행 가능.
+create or replace view public.place_stats as
+select
+  p.id as place_id,
+  count(r.id)                                                            as review_count,
+  count(*) filter (where r.verdict = 'again')                            as again_count,
+  round(
+    count(*) filter (where r.verdict = 'again')::numeric
+    / nullif(count(r.id), 0) * 100, 1
+  )                                                                       as again_rate,
+  round(avg(r.price_per_person)::numeric, 0)                             as avg_price_per_person,
+  max(r.created_at)                                                      as latest_review_at,
+  count(*) filter (where r.verdict = 'no')                               as no_count
+from public.places p
+left join public.reviews r
+  on r.place_id = p.id and r.status = 'published'
+group by p.id;
+
+-- 12-4) 원터치 반응/꿀팁 제보가 쓰는 "익명 프로필"은 앱 코드(lib/anon-profile.ts)가
+--       최초 클릭 시점에 자동으로 만든다(upsert) — 이 스크립트가 미리 만들
+--       필요는 없음. 원터치 반응은 소속조차 묻지 않는 프로필 1개를 전부
+--       공유하고, "15초 꿀팁 제보"는 고른 소속팀마다 별도의 익명 프로필을
+--       공유한다(개인 식별 없이 "그 팀에서 나온 팁"이라는 신뢰도만 표시).
 
 -- ============================================================================
 -- 끝. 이 아래 확인 쿼리로 실제 컬럼 구조를 한 번 더 점검하세요.

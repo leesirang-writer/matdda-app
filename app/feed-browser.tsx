@@ -9,18 +9,19 @@
 //
 // 반드시 ./feed-display 에서만 표시용 헬퍼를 가져온다 — ./feed-queries를
 // import하면 lib/db.ts의 neon() 호출이 브라우저 번들에 끼어들어가 즉시 깨진다.
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import styles from "./feed.module.css";
 import {
-  displayCategory,
-  IMAGE_FALLBACK_PLACEHOLDER,
+  simplifyCategory,
   thumbnailFor,
   trendyBadgeLabel,
+  inferVotePurpose,
   type FeedPlace,
+  type PlaceLite,
 } from "./feed-display";
-import { DISTANCE_OPTIONS, SORT_OPTIONS, useFeedFilters, type SortKey } from "./use-feed-filters";
+import { castQuickVote } from "./feed-vote-actions";
+import { QuickTipModal } from "./quick-tip-modal";
 
 export type AxisTab = {
   value: "food" | "style";
@@ -37,6 +38,24 @@ export type FilterTab = {
   active: boolean;
 };
 
+type SortKey = "distance" | "again_rate" | "price";
+type DistanceKey = "near" | "mid" | "far";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "distance", label: "거리 가까운 순" },
+  { value: "again_rate", label: "재방문율 높은 순" },
+  { value: "price", label: "가격 낮은 순" },
+];
+
+// 단순 "이하" 누적 필터가 아니라 min~max 구간 필터 — 버튼마다 겹치지 않는
+// 서로 다른 식당군이 뜨도록 구간을 딱 잘라 나눴다(회사 바로 앞 스피드 식당 /
+// 명동·필동 기분전환 맛집 / 을지로3가 힙지로 원정대).
+const DISTANCE_OPTIONS: { value: DistanceKey; min: number; max: number; label: string }[] = [
+  { value: "near", min: 1, max: 5, label: "⚡️ 도보 5분 컷 (1~5분)" },
+  { value: "mid", min: 6, max: 10, label: "🚶 도보 6~10분 (600m)" },
+  { value: "far", min: 11, max: 15, label: "🏃 도보 11~15분 (1km)" },
+];
+
 export default function FeedBrowser({
   axis,
   filter,
@@ -45,6 +64,7 @@ export default function FeedBrowser({
   places,
   reviewCount,
   emptyMessages,
+  allPlaces,
 }: {
   axis: "food" | "style";
   filter: string;
@@ -53,21 +73,49 @@ export default function FeedBrowser({
   places: FeedPlace[];
   reviewCount: number;
   emptyMessages: string[];
+  /** GNB "꿀팁 제보하기"가 장소를 직접 검색할 수 있게 넘기는 전체 목록. */
+  allPlaces: PlaceLite[];
 }) {
-  const isLunchFilter = axis === "food" && filter === "lunch";
-  const {
-    rawQuery,
-    setRawQuery,
-    distance,
-    setDistance,
-    sort,
-    setSort,
-    mealWeight,
-    setMealWeight,
-    filteredSorted,
-    resetFilters,
-    widenDistance,
-  } = useFeedFilters(places, isLunchFilter);
+  const [query, setQuery] = useState("");
+  const [distance, setDistance] = useState<DistanceKey | null>(null);
+  const [sort, setSort] = useState<SortKey>("distance");
+  const [gnbTipOpen, setGnbTipOpen] = useState(false);
+
+  const filteredSorted = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const distRange = distance
+      ? DISTANCE_OPTIONS.find((d) => d.value === distance) ?? null
+      : null;
+
+    let list = places.filter((p) => {
+      if (
+        distRange &&
+        (p.walk_minutes == null || p.walk_minutes < distRange.min || p.walk_minutes > distRange.max)
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      const haystack = [p.name, p.signature_menu ?? "", p.category ?? ""]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+
+    list = [...list].sort((a, b) => {
+      if (sort === "distance") {
+        return (a.walk_minutes ?? 999) - (b.walk_minutes ?? 999);
+      }
+      if (sort === "again_rate") {
+        return (b.again_rate ?? -1) - (a.again_rate ?? -1);
+      }
+      // price
+      const ap = a.avg_price_per_person ?? Number.MAX_SAFE_INTEGER;
+      const bp = b.avg_price_per_person ?? Number.MAX_SAFE_INTEGER;
+      return ap - bp;
+    });
+
+    return list;
+  }, [places, query, distance, sort]);
 
   const serverEmpty = places.length === 0;
   const clientEmpty = !serverEmpty && filteredSorted.length === 0;
@@ -112,8 +160,8 @@ export default function FeedBrowser({
           <span className={styles.gnbSearchIcon}>🔍</span>
           <input
             type="text"
-            value={rawQuery}
-            onChange={(e) => setRawQuery(e.target.value)}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="식당 이름, 대표 메뉴, 카테고리로 검색"
             className={styles.gnbSearchInput}
           />
@@ -126,14 +174,26 @@ export default function FeedBrowser({
               조건 추천
             </Link>
           </nav>
-          <Link href="/reviews/new" className={styles.gnbWriteBtn}>
-            ✍️ 사내 리뷰 작성
-          </Link>
+          <button
+            type="button"
+            className={styles.gnbWriteBtn}
+            onClick={() => setGnbTipOpen(true)}
+          >
+            ✍️ 꿀팁 제보하기
+          </button>
           <Link href="/admin" className={styles.gnbAdminLink} aria-label="관리자">
             ⚙️
           </Link>
         </div>
       </header>
+
+      <div className={styles.taglineBar}>
+        어떻게 사람이 밥만 먹고 살아요? KPR 총무팀이 엄선한 90분 점심·커피 큐레이션 가이드
+      </div>
+
+      {gnbTipOpen && (
+        <QuickTipModal allPlaces={allPlaces} onClose={() => setGnbTipOpen(false)} />
+      )}
 
       <div className={styles.body}>
         <aside className={styles.sidebar}>
@@ -158,35 +218,13 @@ export default function FeedBrowser({
             <div className={styles.sidebarTitle}>어떤 상황인가요?</div>
             <div className={styles.filterList}>
               {filterTabs.map((f) => (
-                <div key={f.value} className={styles.filterItem}>
-                  <Link
-                    href={f.href}
-                    className={f.active ? styles.filterBtnActive : styles.filterBtn}
-                  >
-                    {f.label}
-                  </Link>
-                  {/* '데일리 점심'이 켜져 있을 때만: 그날 컨디션에 맞춰 가벼운 한 끼 /
-                      든든한 한 끼를 더 좁혀볼 수 있는 서브 필터. 토글이라 한 번 더
-                      누르면 해제된다. */}
-                  {isLunchFilter && f.value === "lunch" && f.active && (
-                    <div className={styles.mealWeightChips}>
-                      <button
-                        type="button"
-                        onClick={() => setMealWeight((cur) => (cur === "light" ? null : "light"))}
-                        className={mealWeight === "light" ? styles.chipActive : styles.chip}
-                      >
-                        🥗 가볍게
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMealWeight((cur) => (cur === "hearty" ? null : "hearty"))}
-                        className={mealWeight === "hearty" ? styles.chipActive : styles.chip}
-                      >
-                        🍲 든든하게
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <Link
+                  key={f.value}
+                  href={f.href}
+                  className={f.active ? styles.filterBtnActive : styles.filterBtn}
+                >
+                  {f.label}
+                </Link>
               ))}
             </div>
           </div>
@@ -236,17 +274,9 @@ export default function FeedBrowser({
           )}
 
           {clientEmpty && (
-            <div className={styles.emptyStateCard}>
-              <div className={styles.emptyStateIcon}>🔍</div>
-              <p className={styles.emptyStateTitle}>선택하신 조건에 맞는 장소가 아직 없어요!</p>
-              <div className={styles.emptyStateActions}>
-                <button type="button" onClick={widenDistance} className={styles.emptyStateBtn}>
-                  🏃 거리 제한 없이 넓게 보기
-                </button>
-                <button type="button" onClick={resetFilters} className={styles.emptyStateBtnGhost}>
-                  🔄 필터 초기화
-                </button>
-              </div>
+            <div className={styles.emptyState}>
+              <p>검색 조건에 맞는 장소가 없어요.</p>
+              <p>검색어나 거리 필터를 바꿔보세요.</p>
             </div>
           )}
 
@@ -275,22 +305,37 @@ function FeedCard({
   const hasReviews = place.review_count > 0;
   const showClientBadges = axis === "food" && filter === "client";
   const showStyleBadges = axis === "style" && (filter === "remote" || filter === "quiet");
-  // 원본 썸네일(관리자 지정 이미지 → 리뷰 사진 → 카테고리 기본 이미지) 로딩이
-  // 실패하면(끊긴 링크, 네트워크 오류 등) 로컬 fallback으로 한 번만 전환한다.
-  const [imgSrc, setImgSrc] = useState(thumbnailFor(place));
+  const votePurpose = inferVotePurpose(axis, filter);
+
+  // 2026-09-16(17차): "빈집" 느낌을 주던 "아직 리뷰 없음" 문구를 없애고,
+  // 리뷰가 아직 없어도 줄 수 있는 긍정적 신호를 순서대로 시도한다 —
+  // ① 목적별 상세 리뷰가 있으면 기존처럼 재방문율, ② 없으면 관리자가 켠
+  // "총무팀 픽"(1차 검증 신뢰 신호), ③ 그것도 없으면 원터치 반응 수(장소
+  // 전체 기준)라도 있으면 그걸 보여준다. 셋 다 없으면 배지 없이 도보시간만
+  // (부정적인 문구를 억지로 채우지 않음).
+  const [voted, setVoted] = useState<"again" | "no" | null>(null);
+  const [againCount, setAgainCount] = useState(place.again_count);
+  const [noCount, setNoCount] = useState(place.no_count);
+  const [pending, startTransition] = useTransition();
+  const [tipOpen, setTipOpen] = useState(false);
+
+  function handleVote(v: "again" | "no") {
+    if (voted || pending) return;
+    setVoted(v);
+    if (v === "again") setAgainCount((n) => n + 1);
+    else setNoCount((n) => n + 1);
+    startTransition(async () => {
+      // 실패해도 화면엔 이미 반영돼 있고, 가벼운 반응 하나 유실되는 것보다
+      // 로딩 상태로 붙잡아두는 게 더 나쁘다고 판단해 결과를 별도로 되돌리지
+      // 않는다 — 다음 새로고침 때 서버 값으로 자연스럽게 맞춰진다.
+      await castQuickVote(place.id, votePurpose, v);
+    });
+  }
 
   const body = (
     <>
       <div className={styles.cardThumbWrap}>
-        <Image
-          src={imgSrc}
-          alt=""
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 280px"
-          className={styles.cardThumb}
-          loading="lazy"
-          onError={() => setImgSrc(IMAGE_FALLBACK_PLACEHOLDER)}
-        />
+        <img src={thumbnailFor(place)} alt="" className={styles.cardThumb} loading="lazy" />
         {place.is_trendy && (
           <span className={styles.badgeTrendyFloating}>{trendyBadgeLabel(place)}</span>
         )}
@@ -299,7 +344,7 @@ function FeedCard({
       <div className={styles.cardBody}>
         <div className={styles.cardTop}>
           <span className={styles.cardName}>{place.name}</span>
-          <span className={styles.cardCat}>{displayCategory(place)}</span>
+          <span className={styles.cardCat}>{simplifyCategory(place.category)}</span>
         </div>
 
         {place.signature_menu && (
@@ -315,9 +360,11 @@ function FeedCard({
           <span className={styles.badge}>도보 {place.walk_minutes ?? "?"}분</span>
           {hasReviews ? (
             <span className={styles.badgeAccent}>재방문율 {place.again_rate ?? 0}%</span>
-          ) : (
-            <span className={styles.badgePending}>아직 리뷰 없음</span>
-          )}
+          ) : place.is_staff_pick ? (
+            <span className={styles.badgeStaffPick}>🎖️ 총무팀 픽</span>
+          ) : place.again_count > 0 ? (
+            <span className={styles.badgeAccent}>🔥 또 갈래요 {place.again_count}명</span>
+          ) : null}
           {showClientBadges && place.has_room && <span className={styles.badge}>룸 있음</span>}
           {showClientBadges && place.max_party_size != null && (
             <span className={styles.badge}>최대 {place.max_party_size}명</span>
@@ -337,39 +384,83 @@ function FeedCard({
   // 카카오맵 링크는 리뷰 유무·통계와 무관하게 모든 카드 하단에 항상 노출한다
   // (예전엔 리뷰가 있으면 카드 전체가 <Link>가 되면서 그 안에 카카오맵 <a>를
   // 중첩할 수 없어 링크가 사라졌었다 — 그래서 클릭 가능 영역과 하단 푸터를
-  // 완전히 분리해서 두 상태 모두 같은 구조를 쓰도록 정리함).
+  // 완전히 분리해서 두 상태 모두 같은 구조를 쓰도록 정리함). 2026-09-16
+  // (17차)부터 푸터가 통계 줄 + 원터치 반응 줄, 두 줄로 늘어났다.
   return (
-    <div className={styles.card}>
-      <Link href={`/places/${place.id}`} className={styles.cardClickArea}>
-        {body}
-      </Link>
-      <div className={styles.cardFooter}>
-        {place.kakao_url ? (
-          <a
-            className={styles.mapLink}
-            href={place.kakao_url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            카카오맵에서 보기 ↗
-          </a>
-        ) : (
-          <span />
-        )}
-        {hasReviews ? (
-          <span className={styles.footerStats}>
-            1인 평균{" "}
-            {place.avg_price_per_person != null
-              ? `${place.avg_price_per_person.toLocaleString()}원`
-              : "정보 없음"}
-            {" · "}리뷰 {place.review_count}건
-          </span>
-        ) : (
-          <Link href={`/reviews/new?place_id=${place.id}`} className={styles.ctaText}>
-            첫 리뷰를 남겨보세요 →
-          </Link>
-        )}
+    <>
+      <div className={styles.card}>
+        <Link href={`/places/${place.id}`} className={styles.cardClickArea}>
+          {body}
+        </Link>
+        <div className={styles.cardFooter}>
+          <div className={styles.cardFooterTop}>
+            {place.kakao_url ? (
+              <a
+                className={styles.mapLink}
+                href={place.kakao_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                카카오맵에서 보기 ↗
+              </a>
+            ) : (
+              <span />
+            )}
+            {hasReviews ? (
+              <span className={styles.footerStats}>
+                1인 평균{" "}
+                {place.avg_price_per_person != null
+                  ? `${place.avg_price_per_person.toLocaleString()}원`
+                  : "정보 없음"}
+                {" · "}참여 {place.review_count}건
+              </span>
+            ) : place.is_staff_pick ? (
+              <span className={styles.footerStats}>총무팀이 1차 확인한 곳이에요</span>
+            ) : (
+              <span className={styles.footerStats}>아직 상세 팁 전이에요</span>
+            )}
+          </div>
+
+          <div className={styles.voteRow}>
+            <button
+              type="button"
+              className={`${styles.voteButton} ${styles.voteButtonAgain} ${
+                voted === "again" ? styles.voted : ""
+              }`}
+              disabled={!!voted || pending}
+              onClick={() => handleVote("again")}
+            >
+              🔥 또 갈래요{againCount > 0 ? ` (${againCount})` : ""}
+            </button>
+            <button
+              type="button"
+              className={`${styles.voteButton} ${voted === "no" ? styles.voted : ""}`}
+              disabled={!!voted || pending}
+              onClick={() => handleVote("no")}
+            >
+              🤔 굳이{noCount > 0 ? ` (${noCount})` : ""}
+            </button>
+            <button type="button" className={styles.tipLink} onClick={() => setTipOpen(true)}>
+              + 꿀팁
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+
+      {/* .card:hover에 걸린 transform 때문에 모달을 카드 "안"에 두면 그
+          transform이 생기는 순간 position:fixed의 기준이 뷰포트가 아니라
+          카드 박스로 바뀌어 버린다(호버 중인 카드 위에서 "+ 꿀팁"을 눌렀을
+          때 전체 화면 오버레이가 카드 크기로 쪼그라드는 버그 — 로컬
+          Playwright 검증 중 실제로 재현해서 발견). 그래서 모달은 반드시
+          .card의 형제(sibling)로 렌더링해야 한다. */}
+      {tipOpen && (
+        <QuickTipModal
+          placeId={place.id}
+          placeName={place.name}
+          purpose={votePurpose}
+          onClose={() => setTipOpen(false)}
+        />
+      )}
+    </>
   );
 }

@@ -203,7 +203,9 @@ export default async function RecommendPage({
 
               {pair && (
                 <div className={styles.pairCard}>
-                  <span className={styles.pairLabel}>+ 식사 후 연계 코스</span>
+                  <span className={styles.pairLabel}>
+                    + 멋따라: 도보 {pair.walk_minutes}분 컷 카페로 마무리
+                  </span>
                   <img
                     src={
                       pair.image_url ??

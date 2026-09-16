@@ -18,7 +18,9 @@ import {
 export default function RecommendInput() {
   const router = useRouter();
   const [situation, setSituation] = useState<Situation | null>(null);
-  const [timeBudget, setTimeBudget] = useState<TimeBudgetKey | null>(null);
+  // 2026-09-16(16차): "KPR 90분 풀코스"를 기본 선택값으로 민다 — 사용자가
+  // 직접 눌러서 바꾸는 게 아니라 처음부터 선택돼 있는 상태로 시작.
+  const [timeBudget, setTimeBudget] = useState<TimeBudgetKey | null>("90");
   const [priceBudget, setPriceBudget] = useState<PriceBudgetKey | null>(null);
 
   const canSubmit = situation && timeBudget && priceBudget;

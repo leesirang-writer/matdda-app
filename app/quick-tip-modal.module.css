@@ -1,0 +1,184 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 30, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 20px;
+}
+
+.modal {
+  width: 100%;
+  max-width: 380px;
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--surface-card, #fff);
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 24px 60px rgba(20, 18, 30, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.modalTitle {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.closeButton {
+  flex-shrink: 0;
+  border: none;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modalSubtitle {
+  margin-top: -8px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sectionLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chipRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.chipActive {
+  composes: chip;
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+  color: #fff;
+}
+
+.tipInput {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  font-size: 13.5px;
+  box-sizing: border-box;
+}
+
+.searchResults {
+  margin-top: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.searchResultItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: #fff;
+  cursor: pointer;
+}
+.searchResultItem:last-child {
+  border-bottom: none;
+}
+.searchResultName {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.searchResultMeta {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.searchEmpty {
+  padding: 14px 12px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.changePlaceButton {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-purple);
+  cursor: pointer;
+}
+
+.errorText {
+  font-size: 12.5px;
+  color: #c0392b;
+}
+
+.submitButton {
+  padding: 13px 0;
+  border-radius: 14px;
+  border: none;
+  background: var(--accent-purple);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14.5px;
+  cursor: pointer;
+}
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.secondaryLink {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  text-decoration: underline;
+}
+
+.doneState {
+  padding: 30px 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.doneEmoji {
+  font-size: 34px;
+}

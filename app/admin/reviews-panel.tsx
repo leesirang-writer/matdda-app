@@ -12,6 +12,12 @@ const PURPOSE_LABEL: Record<string, string> = {
   cafe: "☕ 커피",
 };
 
+const VERDICT_LABEL: Record<string, string> = {
+  again: "🔥 또 갈래요",
+  ok: "🙂 보통",
+  no: "🤔 굳이",
+};
+
 export default function ReviewsPanel({ reviews }: { reviews: AdminReview[] }) {
   if (reviews.length === 0) {
     return <div className={styles.emptyState}>등록된 리뷰가 없어요.</div>;
@@ -24,14 +30,20 @@ export default function ReviewsPanel({ reviews }: { reviews: AdminReview[] }) {
           <div className={styles.reviewRowHeader}>
             <span className={styles.reviewPlace}>{r.place_name}</span>
             <span className={styles.reviewPurpose}>
-              {PURPOSE_LABEL[r.purpose] ?? r.purpose}
+              {PURPOSE_LABEL[r.purpose] ?? r.purpose} · {VERDICT_LABEL[r.verdict] ?? r.verdict}
             </span>
           </div>
           <div className={styles.reviewAuthor}>
             {r.author_department ? `${r.author_department} · ` : ""}
             {r.author_name}
           </div>
-          {r.content && <p className={styles.reviewContent}>{r.content}</p>}
+          {r.content ? (
+            <p className={styles.reviewContent}>{r.content}</p>
+          ) : (
+            <p className={styles.reviewContent} style={{ opacity: 0.55, fontStyle: "italic" }}>
+              (원터치 반응 — 남긴 텍스트 없음)
+            </p>
+          )}
 
           <form
             action={deleteReview}

@@ -73,10 +73,12 @@ export async function updatePlaceExtras(formData: FormData) {
   const imageUrl = uploadedUrl ?? (imageUrlRaw.length > 0 ? imageUrlRaw : null);
   // 체크박스는 체크됐을 때만 formData에 실려온다 ("on") — 안 실려오면 꺼진 것.
   const isTrendy = formData.get("is_trendy") === "on";
+  const isStaffPick = formData.get("is_staff_pick") === "on";
 
   await sql`
     update places
-    set signature_menu = ${signatureMenu}, image_url = ${imageUrl}, is_trendy = ${isTrendy}
+    set signature_menu = ${signatureMenu}, image_url = ${imageUrl},
+        is_trendy = ${isTrendy}, is_staff_pick = ${isStaffPick}
     where id = ${placeId}
   `;
 
@@ -108,6 +110,7 @@ export async function createPlace(formData: FormData) {
   const placeTypeRaw = formData.get("place_type")?.toString() ?? "meal";
   const walkMinutes = toIntOrNull(formData.get("walk_minutes"));
   const isTrendy = formData.get("is_trendy") === "on";
+  const isStaffPick = formData.get("is_staff_pick") === "on";
 
   if (!name) {
     redirect("/admin?error=" + encodeURIComponent("새 장소 이름을 입력해주세요."));
@@ -133,10 +136,10 @@ export async function createPlace(formData: FormData) {
   await sql`
     insert into places (
       kakao_place_id, name, category, road_address, place_type,
-      walk_minutes, kakao_url, signature_menu, image_url, is_trendy
+      walk_minutes, kakao_url, signature_menu, image_url, is_trendy, is_staff_pick
     ) values (
       ${kakaoPlaceId}, ${name}, ${category}, ${roadAddress}, ${placeType},
-      ${walkMinutes}, ${kakaoUrl}, ${signatureMenu}, ${imageUrl}, ${isTrendy}
+      ${walkMinutes}, ${kakaoUrl}, ${signatureMenu}, ${imageUrl}, ${isTrendy}, ${isStaffPick}
     )
   `;
 

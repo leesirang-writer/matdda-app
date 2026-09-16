@@ -2,6 +2,7 @@ import FeedBrowser, { type AxisTab, type FilterTab } from "./feed-browser";
 import {
   getFeedPlaces,
   getFeedSummary,
+  getAllPlacesLite,
   FOOD_DEFAULT_FILTER,
   STYLE_DEFAULT_FILTER,
   type FeedAxis,
@@ -89,9 +90,10 @@ export default async function FeedPage({
 
   const situationalFilters = axis === "food" ? FOOD_FILTERS : STYLE_FILTERS;
 
-  const [places, summary] = await Promise.all([
+  const [places, summary, allPlaces] = await Promise.all([
     getFeedPlaces(axis, filter),
     getFeedSummary(),
+    getAllPlacesLite(),
   ]);
 
   // 사이드바에 그대로 넘길 수 있게 href/active 상태를 서버에서 미리 계산해둔다 —
@@ -120,6 +122,7 @@ export default async function FeedPage({
       places={places}
       reviewCount={summary.review_count}
       emptyMessages={EMPTY_MESSAGES[axis][filter]}
+      allPlaces={allPlaces}
     />
   );
 }
