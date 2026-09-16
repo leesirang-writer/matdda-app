@@ -177,3 +177,85 @@ export function thumbnailFor(place: FeedPlace): string {
 export function trendyBadgeLabel(place: FeedPlace): string {
   return place.place_type === "cafe" ? "🔥 20대 인기" : "🌮 웨이팅 핫플";
 }
+
+// 카카오 원본 카테고리 문자열의 세그먼트 순서 때문에 simplifyCategory가 사람이
+// 보기에 어색한 대표 분류를 뽑아내는 곳들을 이름으로 직접 보정한다 (예: "가까운빵"은
+// 원본이 "음식점 > 간식 > 베이커리" 순이라 simplifyCategory가 "간식"을 반환함).
+// DB의 category 컬럼 자체를 바꾸지 않고 표시 계층에서만 바로잡는 가벼운 방법.
+// (2026-09-08, 9차 도입 — 18차에서 feed-display.ts를 정리하며 잠시 빠졌다가
+// use-feed-filters.ts와의 타입 불일치를 잡던 중 함께 복원됨.)
+const CATEGORY_OVERRIDES: Record<string, string> = {
+  가까운빵: "브런치/베이커리",
+};
+
+/** simplifyCategory에 이름 기반 보정(CATEGORY_OVERRIDES)까지 적용한 최종 배지 문구. */
+export function displayCategory(place: Pick<FeedPlace, "name" | "category">): string {
+  return CATEGORY_OVERRIDES[place.name] ?? simplifyCategory(place.category);
+}
+
+export type MealWeight = "light" | "hearty";
+
+// '데일리 점심'(든든한 점심) 안에서만 쓰는 가볍게(간단한 한 끼) / 든든하게(포만감
+// 있는 한 끼) 서브 필터 분류 키워드. displayCategory(이름 보정 포함)와 원본
+// category 문자열을 둘 다 검사해서, 이름 보정만 받은 곳(예: 가까운빵)도 바로
+// "가볍게"에 걸리게 한다.
+const LIGHT_MEAL_KEYWORDS = [
+  "샌드위치", "샐러드", "브런치", "토스트", "김밥", "베이커리", "포케", "델리",
+];
+const HEARTY_MEAL_KEYWORDS = [
+  "한식", "국밥", "찌개", "탕", "전골", "돈까스", "돈가스",
+  "고기", "구이", "삼겹살", "갈비", "육류", "곱창", "국수", "우동",
+];
+
+/** 어느 쪽 키워드에도 안 걸리면 null(미분류) — 서브 필터가 켜져 있으면 목록에서 빠진다. */
+export function mealWeightFor(place: Pick<FeedPlace, "name" | "category">): MealWeight | null {
+  const haystack = `${displayCategory(place)} ${place.category ?? ""}`;
+  if (LIGHT_MEAL_KEYWORDS.some((k) => haystack.includes(k))) return "light";
+  if (HEARTY_MEAL_KEYWORDS.some((k) => haystack.includes(k))) return "hearty";
+  return null;
+}
+
+// 썸네일(원격 URL) 로딩이 실패했을 때(끊긴 링크, 네트워크 오류 등) 보여줄 로컬
+// fallback. 네트워크 요청 없이 즉시 렌더되는 data: URL이라 항상 동작한다.
+export const IMAGE_FALLBACK_PLACEHOLDER =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='280'>` +
+      `<rect width='100%' height='100%' fill='#F1EDFD'/>` +
+      `<text x='50%' y='50%' font-size='44' text-anchor='middle' dominant-baseline='central'>🍽️</text>` +
+      `</svg>`
+  );
+
+/** 식당 카드 하단 "☕️ 추천 코스" 태그에 쓰는 결과 — 카페 이름과 표시용 도보 분. */
+export type PairedCafe = { name: string; walkMinutes: number };
+
+// 2026-09-16(18차): "맛따라 + 멋따라 연계" 느낌을 카드 단위로도 보여주기 위한
+// 헬퍼. 두 장소 사이의 실제 도보 거리(geodistance)는 데이터에 없다 —
+// 다수 장소가 위경도를 확보하지 못해서(조건 추천의 getPairedCafe와 동일한
+// 제약, build-progress 13번 참고) 만들어낼 수 없다. 대신 두 장소 모두 이미
+// 아는 값인 "회사 기준 도보시간(walk_minutes)"의 차이를 근사치로 쓴다 — 회사
+// 에서 같은 방향으로 몇 분 더/덜 걸으면 닿는다는 뜻이라 완전한 허구는
+// 아니고, 차이가 아주 작을 때만(2분 이내) 보여줘서 "바로 옆" 느낌이 실제로
+// 맞을 가능성이 높은 경우만 노출한다. 카페가 없거나 조건에 맞는 곳이 없으면
+// null을 반환하고, 이 경우 태그 자체를 아예 숨긴다(억지로 채우지 않음).
+const MAX_PAIR_DIFF_MINUTES = 2;
+
+export function findPairedCafe(
+  place: { id: string; walk_minutes: number | null },
+  cafeCandidates: PlaceLite[]
+): PairedCafe | null {
+  if (place.walk_minutes == null) return null;
+
+  let best: { name: string; diff: number } | null = null;
+  for (const c of cafeCandidates) {
+    if (c.id === place.id || c.walk_minutes == null) continue;
+    const diff = Math.abs(c.walk_minutes - place.walk_minutes);
+    if (diff > MAX_PAIR_DIFF_MINUTES) continue;
+    if (!best || diff < best.diff || (diff === best.diff && c.name < best.name)) {
+      best = { name: c.name, diff };
+    }
+  }
+  if (!best) return null;
+  // 차이가 0분이어도 "도보 0분"이라고 쓰면 어색하니 최소 1분으로 표시한다.
+  return { name: best.name, walkMinutes: best.diff === 0 ? 1 : best.diff };
+}

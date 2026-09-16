@@ -11,16 +11,17 @@ import {
 } from "./feed-queries";
 
 // "전체" 탭은 없앴다 — 축을 누르면 바로 첫 번째(기본) 상황 필터로 들어간다.
-// 2026-09-15(14차): 임직원 실제 이용 패턴에 맞춰 "매일 겪는 실속 점심"과
-// "카페·작업 공간" 중심으로 순서/기본값을 전면 개편. 무거운 "룸/접대"는
-// 완전히 없애진 않되 맨 아래로 내렸다(가끔은 필요하니까). 새로 추가된
-// "light"(가벼운 점심)의 매칭 로직은 feed-queries.ts 참고.
+// 2026-09-16(18차): "KPR 90분 밥+카페 페어링"이라는 핵심 컨셉에 집중하기
+// 위해 사이드바 상황 필터를 3개로 대폭 정리했다 — [저녁/회식], [룸/접대]는
+// 완전히 삭제(사용자 요청). 이 두 값은 quick-tip 모달의 방문 목적(purpose)
+// 이나 조건 추천(situation)에서는 계속 쓰이므로 feed-queries.ts의 쿼리
+// 분기·FoodFilter 타입 자체는 남겨뒀고, isValidFoodFilter만 좁혀서 이
+// 둘러보기 화면에서는 더 이상 선택할 수 없게 막았다 — 옛 북마크로
+// ?filter=dinner 등이 들어와도 기본값(든든한 점심)으로 조용히 대체된다.
 const FOOD_FILTERS: { value: FoodFilter; label: string }[] = [
   { value: "lunch", label: "🍚 든든한 점심" },
   { value: "light", label: "🥗 가벼운 점심" },
   { value: "trendy", label: "🌮 힙지로·트렌드" },
-  { value: "dinner", label: "🍺 저녁/회식" },
-  { value: "client", label: "👔 룸/접대" },
 ];
 
 const STYLE_FILTERS: { value: StyleFilter; label: string }[] = [
@@ -39,8 +40,6 @@ const EMPTY_MESSAGES: Record<FeedAxis, Record<string, string[]>> = {
     lunch: ["아직 든든한 점심으로 남긴 리뷰가 없어요."],
     light: ["아직 가벼운 점심으로 분류된 곳이 없어요.", "/admin에서 대표 메뉴에 샐러드·포케·샌드위치·국수 같은 키워드를 적어두면 이 필터에 자동으로 잡혀요."],
     trendy: ["아직 관리자가 등록한 힙지로 트렌드 핫플이 없어요.", "/admin에서 20대 트렌드를 켜보세요!"],
-    dinner: ["아직 저녁·회식으로 남긴 리뷰가 없어요."],
-    client: ["아직 이 상황에 맞는 리뷰가 없어요.", "첫 리뷰를 남겨서 채워보세요!"],
   },
   style: {
     trendy: ["아직 관리자가 등록한 힙플레이스·디저트 핫플이 없어요.", "/admin에서 20대 트렌드를 켜보세요!"],
@@ -52,8 +51,12 @@ const EMPTY_MESSAGES: Record<FeedAxis, Record<string, string[]>> = {
 function isValidAxis(v: string | undefined): v is FeedAxis {
   return v === "food" || v === "style";
 }
+// 2026-09-16(18차): [저녁/회식]·[룸/접대]를 사이드바에서 뺀 뒤로는 이
+// 화면(둘러보기)에서 더 이상 선택 가능한 값이 아니다 — 예전 링크로 들어와도
+// 아래 isValidFoodFilter가 false를 돌려줘서 FOOD_DEFAULT_FILTER(든든한
+// 점심)로 자연스럽게 대체된다.
 function isValidFoodFilter(v: string | undefined): v is FoodFilter {
-  return v === "lunch" || v === "light" || v === "trendy" || v === "dinner" || v === "client";
+  return v === "lunch" || v === "light" || v === "trendy";
 }
 function isValidStyleFilter(v: string | undefined): v is StyleFilter {
   return v === "trendy" || v === "remote" || v === "quiet";

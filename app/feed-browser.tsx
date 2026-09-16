@@ -13,12 +13,17 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import styles from "./feed.module.css";
 import {
-  simplifyCategory,
+  displayCategory,
   thumbnailFor,
   trendyBadgeLabel,
   inferVotePurpose,
+  findPairedCafe,
+  mealWeightFor,
+  IMAGE_FALLBACK_PLACEHOLDER,
   type FeedPlace,
   type PlaceLite,
+  type PairedCafe,
+  type MealWeight,
 } from "./feed-display";
 import { castQuickVote } from "./feed-vote-actions";
 import { QuickTipModal } from "./quick-tip-modal";
@@ -39,7 +44,7 @@ export type FilterTab = {
 };
 
 type SortKey = "distance" | "again_rate" | "price";
-type DistanceKey = "near" | "mid" | "far";
+type DistanceKey = "near" | "far";
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "distance", label: "거리 가까운 순" },
@@ -47,13 +52,13 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "price", label: "가격 낮은 순" },
 ];
 
-// 단순 "이하" 누적 필터가 아니라 min~max 구간 필터 — 버튼마다 겹치지 않는
-// 서로 다른 식당군이 뜨도록 구간을 딱 잘라 나눴다(회사 바로 앞 스피드 식당 /
-// 명동·필동 기분전환 맛집 / 을지로3가 힙지로 원정대).
+// 2026-09-16(18차): 3단계(5분/6~10분/11~15분)였던 거리 필터를 사용자 요청으로
+// 2단계로 단순화 — "회사 바로 앞"이냐 "그 밖(힙지로·명동 산책 포함)"이냐만
+// 직관적으로 나눈다. "far"는 상한을 두지 않고(Infinity 대신 충분히 큰
+// 값 999) 6분 이상을 전부 포함한다.
 const DISTANCE_OPTIONS: { value: DistanceKey; min: number; max: number; label: string }[] = [
-  { value: "near", min: 1, max: 5, label: "⚡️ 도보 5분 컷 (1~5분)" },
-  { value: "mid", min: 6, max: 10, label: "🚶 도보 6~10분 (600m)" },
-  { value: "far", min: 11, max: 15, label: "🏃 도보 11~15분 (1km)" },
+  { value: "near", min: 1, max: 5, label: "⚡️ 도보 5분 컷 (회사 바로 앞)" },
+  { value: "far", min: 6, max: 999, label: "🚶 도보 6분+ (힙지로·명동 산책)" },
 ];
 
 export default function FeedBrowser({
@@ -79,7 +84,26 @@ export default function FeedBrowser({
   const [query, setQuery] = useState("");
   const [distance, setDistance] = useState<DistanceKey | null>(null);
   const [sort, setSort] = useState<SortKey>("distance");
+  const [mealWeight, setMealWeight] = useState<MealWeight | null>(null);
   const [gnbTipOpen, setGnbTipOpen] = useState(false);
+
+  // "든든한 점심"(food/lunch)을 보고 있을 때만 그날 컨디션에 맞춘 가벼운/든든한
+  // 한 끼 서브 필터를 노출한다 — 다른 상황(가벼운 점심/힙지로 트렌드/멋따라)에서는
+  // 굳이 물을 필요가 없는 조건이라 칩 자체를 숨긴다(2026-09-08, 9차 도입분을
+  // 18차 정리 과정에서 복원).
+  const isLunchFilter = axis === "food" && filter === "lunch";
+
+  // 2026-09-16(18차): "맛따라+멋따라" 카드 하단 "☕️ 추천 코스" 태그용 카페
+  // 후보 — allPlaces(GNB 꿀팁 검색용으로 이미 받아온 전체 목록)에서
+  // 카페(cafe/both)이면서 도보시간을 아는 곳만 추린다. 새 쿼리 없이 이미
+  // 있는 데이터로 계산.
+  const cafeCandidates = useMemo(
+    () =>
+      allPlaces.filter(
+        (p) => (p.place_type === "cafe" || p.place_type === "both") && p.walk_minutes != null
+      ),
+    [allPlaces]
+  );
 
   const filteredSorted = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -92,6 +116,9 @@ export default function FeedBrowser({
         distRange &&
         (p.walk_minutes == null || p.walk_minutes < distRange.min || p.walk_minutes > distRange.max)
       ) {
+        return false;
+      }
+      if (isLunchFilter && mealWeight && mealWeightFor(p) !== mealWeight) {
         return false;
       }
       if (!q) return true;
@@ -115,7 +142,7 @@ export default function FeedBrowser({
     });
 
     return list;
-  }, [places, query, distance, sort]);
+  }, [places, query, distance, sort, mealWeight, isLunchFilter]);
 
   const serverEmpty = places.length === 0;
   const clientEmpty = !serverEmpty && filteredSorted.length === 0;
@@ -170,8 +197,9 @@ export default function FeedBrowser({
         <div className={styles.gnbRight}>
           <nav className={styles.gnbTabs}>
             <span className={styles.gnbTabBtnActive}>둘러보기</span>
-            <Link href="/recommend" className={styles.gnbTabBtn}>
+            <Link href="/recommend" className={styles.gnbTabBtnRecommend}>
               조건 추천
+              <span className={styles.recommendBadge}>✨ 90분 코스</span>
             </Link>
           </nav>
           <button
@@ -197,6 +225,15 @@ export default function FeedBrowser({
 
       <div className={styles.body}>
         <aside className={styles.sidebar}>
+          <Link href="/recommend" className={styles.recommendBanner}>
+            <span className={styles.recommendBannerText}>
+              오늘 점심 뭐 먹지?
+              <br />
+              KPR 90분 밥+카페 풀코스 추천받기
+            </span>
+            <span className={styles.recommendBannerArrow}>➔</span>
+          </Link>
+
           <div className={styles.sidebarCard}>
             <div className={styles.sidebarTitle}>카테고리</div>
             <div className={styles.axisSwitch}>
@@ -218,13 +255,35 @@ export default function FeedBrowser({
             <div className={styles.sidebarTitle}>어떤 상황인가요?</div>
             <div className={styles.filterList}>
               {filterTabs.map((f) => (
-                <Link
-                  key={f.value}
-                  href={f.href}
-                  className={f.active ? styles.filterBtnActive : styles.filterBtn}
-                >
-                  {f.label}
-                </Link>
+                <div key={f.value} className={styles.filterItem}>
+                  <Link
+                    href={f.href}
+                    className={f.active ? styles.filterBtnActive : styles.filterBtn}
+                  >
+                    {f.label}
+                  </Link>
+                  {/* '든든한 점심'이 켜져 있을 때만: 그날 컨디션에 맞춰 가벼운 한 끼 /
+                      든든한 한 끼로 더 좁혀볼 수 있는 서브 필터. 토글이라 한 번 더
+                      누르면 해제된다. */}
+                  {isLunchFilter && f.value === "lunch" && f.active && (
+                    <div className={styles.mealWeightChips}>
+                      <button
+                        type="button"
+                        onClick={() => setMealWeight((cur) => (cur === "light" ? null : "light"))}
+                        className={mealWeight === "light" ? styles.chipActive : styles.chip}
+                      >
+                        🥗 가볍게
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMealWeight((cur) => (cur === "hearty" ? null : "hearty"))}
+                        className={mealWeight === "hearty" ? styles.chipActive : styles.chip}
+                      >
+                        🍲 든든하게
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -283,7 +342,13 @@ export default function FeedBrowser({
           {!serverEmpty && !clientEmpty && (
             <div className={styles.grid}>
               {filteredSorted.map((p) => (
-                <FeedCard key={p.id} place={p} axis={axis} filter={filter} />
+                <FeedCard
+                  key={p.id}
+                  place={p}
+                  axis={axis}
+                  filter={filter}
+                  pairedCafe={axis === "food" ? findPairedCafe(p, cafeCandidates) : null}
+                />
               ))}
             </div>
           )}
@@ -297,10 +362,13 @@ function FeedCard({
   place,
   axis,
   filter,
+  pairedCafe,
 }: {
   place: FeedPlace;
   axis: "food" | "style";
   filter: string;
+  /** "☕️ 추천 코스" 태그 — food 축 카드에서만 계산해서 넘어온다(없으면 숨김). */
+  pairedCafe: PairedCafe | null;
 }) {
   const hasReviews = place.review_count > 0;
   const showClientBadges = axis === "food" && filter === "client";
@@ -318,6 +386,9 @@ function FeedCard({
   const [noCount, setNoCount] = useState(place.no_count);
   const [pending, startTransition] = useTransition();
   const [tipOpen, setTipOpen] = useState(false);
+  // 원본 썸네일(관리자 지정 이미지 → 리뷰 사진 → 카테고리 기본 이미지) 로딩이
+  // 실패하면(끊긴 링크, 네트워크 오류 등) 로컬 fallback으로 한 번만 전환한다.
+  const [imgSrc, setImgSrc] = useState(thumbnailFor(place));
 
   function handleVote(v: "again" | "no") {
     if (voted || pending) return;
@@ -335,7 +406,13 @@ function FeedCard({
   const body = (
     <>
       <div className={styles.cardThumbWrap}>
-        <img src={thumbnailFor(place)} alt="" className={styles.cardThumb} loading="lazy" />
+        <img
+          src={imgSrc}
+          alt=""
+          className={styles.cardThumb}
+          loading="lazy"
+          onError={() => setImgSrc(IMAGE_FALLBACK_PLACEHOLDER)}
+        />
         {place.is_trendy && (
           <span className={styles.badgeTrendyFloating}>{trendyBadgeLabel(place)}</span>
         )}
@@ -344,7 +421,7 @@ function FeedCard({
       <div className={styles.cardBody}>
         <div className={styles.cardTop}>
           <span className={styles.cardName}>{place.name}</span>
-          <span className={styles.cardCat}>{simplifyCategory(place.category)}</span>
+          <span className={styles.cardCat}>{displayCategory(place)}</span>
         </div>
 
         {place.signature_menu && (
@@ -377,6 +454,12 @@ function FeedCard({
             <span className={styles.badge}>장시간 가능</span>
           )}
         </div>
+
+        {pairedCafe && (
+          <div className={styles.pairedCafeTag}>
+            ☕️ 추천 코스: {pairedCafe.name} (도보 {pairedCafe.walkMinutes}분)
+          </div>
+        )}
       </div>
     </>
   );

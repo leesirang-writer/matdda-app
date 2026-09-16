@@ -115,6 +115,13 @@ function normalizePlaceRow(row: Record<string, unknown>): FeedPlace {
 // 반복해서 쓰고 있다 (가장 최근에 발행된 리뷰의 첫 번째 사진 우선). select
 // 목록에도 signature_menu/image_url/is_trendy를 매번 포함시킨다.
 
+// 2026-09-16(18차): page.tsx의 isValidFoodFilter가 "dinner"/"client"를 더
+// 이상 유효한 값으로 인정하지 않게 되면서, 이 두 분기는 둘러보기
+// 화면에서는 실제로 도달할 수 없다(사이드바에서도 완전히 삭제됨). 그래도
+// FoodFilter 타입/쿼리 자체는 남겨뒀다 — "dinner"/"client"는 여전히
+// reviews.purpose·quick-tip 방문 목적·조건 추천(situation) 값으로 계속
+// 쓰이는 정상적인 개념이라, 나중에 이 화면에 다시 노출하고 싶어지면 언제든
+// FOOD_FILTERS/isValidFoodFilter만 되돌리면 된다.
 export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<FeedPlace[]> {
   if (axis === "food") {
     if (filter === "dinner") {

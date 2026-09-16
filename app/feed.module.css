@@ -150,6 +150,30 @@
   box-shadow: var(--shadow-soft);
   cursor: default;
 }
+/* 2026-09-16(18차): 눈에 띄지 않던 [조건 추천] 탭을 보라 그라데이션 +
+   "✨ 90분 코스" 배지로 강조 — 킬러 기능을 GNB에서부터 확실히 노출한다. */
+.gnbTabBtnRecommend {
+  composes: gnbTabBtn;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-dark));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow-soft);
+}
+.gnbTabBtnRecommend:hover {
+  box-shadow: var(--shadow-md);
+}
+.recommendBadge {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--accent-purple-dark);
+  background: #fff;
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
 .gnbWriteBtn {
   display: inline-flex;
   align-items: center;
@@ -210,6 +234,43 @@
   flex-direction: column;
   gap: 20px;
 }
+/* 2026-09-16(18차): 사이드바 최상단 대형 배너 — 잘 안 보이던 [조건 추천]
+   (킬러 기능)으로 시선을 바로 끌어오기 위한 장치. 필터가 3개로 줄어들면서
+   생긴 여유 공간에 자연스럽게 들어간다. */
+.recommendBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-dark));
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.recommendBanner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(99, 68, 231, 0.32);
+}
+.recommendBannerText {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #fff;
+  letter-spacing: -0.01em;
+  word-break: keep-all;
+}
+.recommendBannerArrow {
+  flex-shrink: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
 .sidebarCard {
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
@@ -288,6 +349,38 @@
   border-color: var(--accent-purple);
   color: var(--accent-purple);
   font-weight: 700;
+}
+
+/* 상황 필터 각 항목(버튼 + 활성일 때만 보이는 서브 필터 칩)을 세로로 묶는
+   래퍼. "든든한 점심" 서브 필터(가볍게/든든하게, 9차 도입분을 18차에서
+   복원)가 여기 들어간다. */
+.filterItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mealWeightChips {
+  display: flex;
+  gap: 6px;
+  padding-left: 2px;
+}
+.chip {
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.chipActive {
+  composes: chip;
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+  color: #fff;
 }
 
 /* ---------- 메인 콘텐츠 ---------- */
@@ -483,6 +576,20 @@
   color: var(--text-tertiary);
   background: transparent;
   border: 1px dashed var(--border-subtle-strong);
+}
+/* 2026-09-16(18차): 식당 카드에서 "바로 옆 카페"를 한눈에 보여주는 태그 —
+   '맛따라 + 멋따라' 페어링 컨셉을 카드 단위에서도 드러낸다. */
+.pairedCafeTag {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-warm);
+  background: var(--accent-warm-soft);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* 2026-09-16(17차): 리뷰가 없어도 "총무팀이 1차 확인했다"는 긍정적 신호 —
    badgePending("아직 리뷰 없음")을 대체하는 용도로, 부정적 문구 대신 쓴다. */
