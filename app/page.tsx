@@ -9,6 +9,7 @@ import {
   type FoodFilter,
   type StyleFilter,
 } from "./feed-queries";
+import { getWeeklyRanking } from "./ranking-queries";
 
 // "전체" 탭은 없앴다 — 축을 누르면 바로 첫 번째(기본) 상황 필터로 들어간다.
 // 2026-09-16(18차): "KPR 90분 밥+카페 페어링"이라는 핵심 컨셉에 집중하기
@@ -93,10 +94,12 @@ export default async function FeedPage({
 
   const situationalFilters = axis === "food" ? FOOD_FILTERS : STYLE_FILTERS;
 
-  const [places, summary, allPlaces] = await Promise.all([
+  const [places, summary, allPlaces, rankingMeal, rankingCafe] = await Promise.all([
     getFeedPlaces(axis, filter),
     getFeedSummary(),
     getAllPlacesLite(),
+    getWeeklyRanking("meal"),
+    getWeeklyRanking("cafe"),
   ]);
 
   // 사이드바에 그대로 넘길 수 있게 href/active 상태를 서버에서 미리 계산해둔다 —
@@ -126,6 +129,8 @@ export default async function FeedPage({
       reviewCount={summary.review_count}
       emptyMessages={EMPTY_MESSAGES[axis][filter]}
       allPlaces={allPlaces}
+      rankingMeal={rankingMeal}
+      rankingCafe={rankingCafe}
     />
   );
 }

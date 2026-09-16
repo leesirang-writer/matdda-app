@@ -4,14 +4,16 @@ import { sql } from "@/lib/db";
 import { getSessionProfileId } from "@/lib/session";
 
 // purpose enum(recommendation_logs.purpose)은 reviews와 동일하게
-// client/remote_work/lunch/dinner/cafe 다섯 개뿐이라, "20대 동기들과 힙지로
-// 핫플" 같은 상황은 실제로 채택된 장소의 place_type을 보고 가장 가까운 값으로
-// 매핑한다(밥집이면 lunch/dinner 성격, 카페면 cafe).
+// client/remote_work/lunch/dinner/cafe 다섯 개뿐이라, "20대 힙지로 핫플" 같은
+// 상황은 실제로 채택된 장소의 place_type을 보고 가장 가까운 값으로 매핑한다
+// (밥집이면 lunch/dinner 성격, 카페면 cafe).
+// 2026-09-16(19차): situation 값이 trendy/client/speed/remote →
+// hearty/light/hotplace/remote로 바뀌면서 매핑도 함께 갱신. client(접대)
+// 옵션은 조건 추천에서 완전히 삭제됐으므로 분기 자체를 없앴다.
 function purposeForLog(situation: string, placeType: string): string {
-  if (situation === "client") return "client";
   if (situation === "remote") return placeType === "cafe" ? "cafe" : "remote_work";
-  if (situation === "speed") return "lunch";
-  // trendy
+  if (situation === "hearty" || situation === "light") return "lunch";
+  // hotplace
   return placeType === "cafe" ? "cafe" : "dinner";
 }
 
@@ -26,7 +28,6 @@ export async function decideRecommendation(formData: FormData) {
 
   const situation = formData.get("situation")?.toString() ?? "";
   const timeBudget = formData.get("time_budget")?.toString() ?? "";
-  const priceBudget = formData.get("price_budget")?.toString() ?? "";
   const selectedPlaceId = formData.get("selected_place_id")?.toString() ?? "";
   const placeType = formData.get("place_type")?.toString() ?? "meal";
   const recommendedIdsRaw = formData.get("recommended_place_ids")?.toString() ?? "";
@@ -47,7 +48,7 @@ export async function decideRecommendation(formData: FormData) {
       values (
         ${profileId},
         ${purpose},
-        ${{ situation, time_budget: timeBudget, price_budget: priceBudget }},
+        ${{ situation, time_budget: timeBudget }},
         ${recommendedIds},
         ${selectedPlaceId}
       )

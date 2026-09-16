@@ -29,6 +29,8 @@ import { MascotBanner } from "./components/mascot-banner";
 import { MascotBubble } from "./components/mascot-bubble";
 import { CatMascot } from "./components/cat-mascot";
 import mascotStyles from "./components/mascot.module.css";
+import { WeeklyRanking } from "./components/weekly-ranking";
+import type { RankingItem } from "./ranking-display";
 
 export type AxisTab = {
   value: "food" | "style";
@@ -72,6 +74,8 @@ export default function FeedBrowser({
   reviewCount,
   emptyMessages,
   allPlaces,
+  rankingMeal,
+  rankingCafe,
 }: {
   axis: "food" | "style";
   filter: string;
@@ -82,6 +86,9 @@ export default function FeedBrowser({
   emptyMessages: string[];
   /** GNB "꿀팁 제보하기"가 장소를 직접 검색할 수 있게 넘기는 전체 목록. */
   allPlaces: PlaceLite[];
+  /** 사이드바 하단 "🏆 KPR 주간 랭킹 TOP 5" 위젯용 — page.tsx가 미리 조회. */
+  rankingMeal: RankingItem[];
+  rankingCafe: RankingItem[];
 }) {
   const [query, setQuery] = useState("");
   const [distance, setDistance] = useState<DistanceKey | null>(null);
@@ -193,6 +200,11 @@ export default function FeedBrowser({
               조건 추천
               <span className={styles.recommendBadge}>✨ 90분 코스</span>
             </Link>
+            {/* 2026-09-16(19차): 신규 가챠 페이지 진입 버튼 — GNB 우측, 항상
+                보이는 위치에 배치해 눈에 띄게 한다. */}
+            <Link href="/gacha" className={styles.gnbTabBtnGacha}>
+              🎰 오늘 점심 가챠 뽑기!
+            </Link>
           </nav>
           <button
             type="button"
@@ -277,6 +289,9 @@ export default function FeedBrowser({
               ))}
             </div>
           </div>
+
+          {/* 2026-09-16(19차): 사이드바 맨 하단 주간 랭킹 위젯 — 사용자 요청. */}
+          <WeeklyRanking mealItems={rankingMeal} cafeItems={rankingCafe} />
         </aside>
 
         <main className={styles.main}>

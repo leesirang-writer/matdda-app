@@ -8,19 +8,17 @@
 import { useState, useTransition } from "react";
 import styles from "./recommend.module.css";
 import { decideRecommendation } from "./actions";
-import type { Situation, TimeBudgetKey, PriceBudgetKey } from "./recommend-display";
+import type { Situation, TimeBudgetKey } from "./recommend-display";
 
 export default function DecideButton({
   situation,
   timeBudget,
-  priceBudget,
   placeId,
   placeType,
   recommendedIds,
 }: {
   situation: Situation;
   timeBudget: TimeBudgetKey;
-  priceBudget: PriceBudgetKey;
   placeId: string;
   placeType: string;
   recommendedIds: string[];
@@ -44,7 +42,6 @@ export default function DecideButton({
           const fd = new FormData();
           fd.set("situation", situation);
           fd.set("time_budget", timeBudget);
-          fd.set("price_budget", priceBudget);
           fd.set("selected_place_id", placeId);
           fd.set("place_type", placeType);
           fd.set("recommended_place_ids", recommendedIds.join(","));

@@ -165,6 +165,21 @@
 .gnbTabBtnRecommend:hover {
   box-shadow: var(--shadow-md);
 }
+/* 2026-09-16(19차): "🎰 오늘 점심 가챠 뽑기!" 진입 버튼 — 조건 추천과는
+   다른 계열 색(따뜻한 오렌지)으로 눈에 띄게 구분한다. */
+.gnbTabBtnGacha {
+  composes: gnbTabBtn;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--accent-warm), #ff6b3d);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow-soft);
+}
+.gnbTabBtnGacha:hover {
+  box-shadow: var(--shadow-md);
+}
 .recommendBadge {
   font-size: 10px;
   font-weight: 800;
@@ -704,4 +719,85 @@
 }
 .emptyState p {
   margin: 0 0 4px;
+}
+
+/* ---------- 사이드바 하단 "🏆 KPR 주간 랭킹 TOP 5" 위젯 (19차) ---------- */
+.rankingTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.rankingTab {
+  border: 1px solid var(--border-subtle);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 8px 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.rankingTabActive {
+  composes: rankingTab;
+  background: var(--accent-purple-soft);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+.rankingList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rankingRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+.rankingRow:hover {
+  background: var(--surface-bg);
+}
+.rankingBadge {
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent-purple);
+}
+.rankingInfo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rankingName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rankingMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rankingEmpty {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 4px 0 0;
+  line-height: 1.5;
 }

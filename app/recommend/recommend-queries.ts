@@ -1,8 +1,8 @@
 import { sql } from "@/lib/db";
+import { mealWeightFor } from "../feed-display";
 import {
   type Situation,
   type TimeBudgetKey,
-  type PriceBudgetKey,
   timeBudgetMinutes,
 } from "./recommend-display";
 
@@ -15,26 +15,26 @@ import {
 // 비슷한 곳을 고르는 근사치이고, 화면 문구도 "회사에서 도보 N분"처럼 우리가 실제로
 // 아는 값만 정직하게 보여준다(가짜로 "두 장소 사이 도보 1분"이라고 주장하지 않음).
 //
-// 상황/시간/가격 옵션 상수와 타입은 DB에 전혀 의존하지 않는 recommend-display.ts에
+// 상황/시간 옵션 상수와 타입은 DB에 전혀 의존하지 않는 recommend-display.ts에
 // 있다 — 클라이언트 컴포넌트(recommend-input.tsx, decide-button.tsx)는 반드시
 // 거기서만 import할 것.
-export type { Situation, TimeBudgetKey, PriceBudgetKey };
+export type { Situation, TimeBudgetKey };
 export {
   SITUATION_OPTIONS,
   TIME_BUDGET_OPTIONS,
-  PRICE_BUDGET_OPTIONS,
   isSituation,
   isTimeBudget,
-  isPriceBudget,
   timeBudgetMinutes,
 } from "./recommend-display";
 
-// 상황별 "식사 시간" 고정 가정치(분) — 실측 데이터가 없어서 상식적인 값으로
-// 잡아둔 추정치다. 접대는 여유있게, 스피드는 짧게.
+// 2026-09-16(19차): 상황별 "식사 시간" 고정 가정치(분) — 실측 데이터가 없어서
+// 상식적인 값으로 잡아둔 추정치다. hearty(든든한 한식)는 여유있게, light(가벼운
+// 한 끼)는 짧게, hotplace/remote는 기존(18차 이전 trendy/remote) 값을 그대로
+// 이어받았다.
 const MEAL_MINUTES: Record<Situation, number> = {
-  trendy: 25,
-  client: 35,
-  speed: 15,
+  hearty: 25,
+  light: 15,
+  hotplace: 25,
   remote: 20,
 };
 
@@ -42,9 +42,9 @@ const MEAL_MINUTES: Record<Situation, number> = {
 // 화면에는 반드시 "추정"이라고 표시하고, 실측 데이터가 하나라도 있으면 그걸
 // 우선한다 — 데이터 정직성 원칙 유지.
 const FALLBACK_WAIT_MINUTES: Record<Situation, number> = {
-  trendy: 12,
-  client: 5,
-  speed: 3,
+  hearty: 10,
+  light: 5,
+  hotplace: 12,
   remote: 5,
 };
 
@@ -83,14 +83,12 @@ export type RecommendCandidate = {
   meal_minutes: number;
   total_minutes: number;
   fits_time_budget: boolean;
-  fits_price_budget: boolean;
 };
 
 function deriveCandidate(
   row: Record<string, unknown>,
   situation: Situation,
-  timeBudget: number,
-  priceBudget: PriceBudgetKey
+  timeBudget: number
 ): RecommendCandidate {
   const walkMinutes = toNumOrNull(row.walk_minutes) ?? 0;
   const roundTrip = walkMinutes * 2;
@@ -100,13 +98,6 @@ function deriveCandidate(
   const mealMinutes = MEAL_MINUTES[situation];
   const total = roundTrip + wait + mealMinutes;
   const avgPrice = toNumOrNull(row.avg_price_per_person);
-
-  let fitsPrice = true;
-  if (avgPrice != null) {
-    if (priceBudget === "10000") fitsPrice = avgPrice <= 10000;
-    else if (priceBudget === "15000") fitsPrice = avgPrice <= 15000;
-    else fitsPrice = avgPrice >= 30000;
-  }
 
   // 상황별 리뷰 통계(purpose 한정)가 있으면 그걸, 없으면 장소 전체 통계로 보완.
   const purposeReviewCount = toNumOrNull(row.purpose_review_count) ?? 0;
@@ -145,7 +136,6 @@ function deriveCandidate(
     meal_minutes: mealMinutes,
     total_minutes: total,
     fits_time_budget: total <= timeBudget,
-    fits_price_budget: fitsPrice,
   };
 }
 
@@ -156,7 +146,6 @@ function rankAndTake(
   return [...candidates]
     .sort((a, b) => {
       if (a.fits_time_budget !== b.fits_time_budget) return a.fits_time_budget ? -1 : 1;
-      if (a.fits_price_budget !== b.fits_price_budget) return a.fits_price_budget ? -1 : 1;
       const ar = a.again_rate ?? -1;
       const br = b.again_rate ?? -1;
       if (ar !== br) return br - ar;
@@ -165,181 +154,142 @@ function rankAndTake(
     .slice(0, take);
 }
 
+// 공통 select/join 구조 — 밥집/카페 후보 전체를 (거의) 필터 없이 끌어와서
+// JS 쪽에서 상황별로 다시 골라 쓴다. 큐레이션된 전체 풀이 약 30곳뿐이라
+// SQL에서 20개로 잘라내는 이전 방식은 hearty/light처럼 키워드로 다시
+// 좁히는 상황에서 후보가 3개 미만으로 남는 사고를 만들 수 있어(19차),
+// place_type만 거르고 나머지는 JS에서 처리한다.
+async function fetchOverallCandidates(
+  placeTypes: readonly ("meal" | "both" | "cafe")[]
+): Promise<Record<string, unknown>[]> {
+  const rows = await sql`
+    select
+      pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.kakao_url,
+      pl.walk_minutes, pl.place_type, pl.has_room, pl.max_party_size,
+      pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
+      pl.signature_menu, pl.image_url, pl.is_trendy,
+      coalesce(ps.review_count, 0) as review_count,
+      ps.again_rate,
+      ps.avg_price_per_person,
+      photo.storage_path as thumbnail_url,
+      wait.avg_wait_minutes,
+      dep.department as verifier_department
+    from places pl
+    left join place_stats ps on ps.place_id = pl.id
+    left join lateral (
+      select round(avg(r.wait_minutes)::numeric, 0) as avg_wait_minutes
+      from reviews r
+      where r.place_id = pl.id and r.status = 'published' and r.wait_minutes is not null
+    ) wait on true
+    left join lateral (
+      select pr.department
+      from reviews r2
+      join profiles pr on pr.id = r2.author_id
+      where r2.place_id = pl.id and r2.status = 'published'
+        and pr.department is not null and pr.department <> ''
+      order by r2.created_at desc
+      limit 1
+    ) dep on true
+    left join lateral (
+      select rp.storage_path
+      from review_photos rp
+      join reviews r3 on r3.id = rp.review_id
+      where r3.place_id = pl.id and r3.status = 'published'
+      order by r3.created_at desc, rp.sort_order asc
+      limit 1
+    ) photo on true
+    where pl.place_type = any(${placeTypes as unknown as string[]}::text[]) and pl.walk_minutes is not null
+    order by pl.walk_minutes asc
+  `;
+  return rows as Record<string, unknown>[];
+}
+
+// purpose='lunch' 리뷰 통계까지 붙여서 끌어오는 버전 — hearty/light(둘 다
+// 점심 식사 상황)에서 쓴다.
+async function fetchLunchCandidates(): Promise<Record<string, unknown>[]> {
+  const rows = await sql`
+    select
+      pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.kakao_url,
+      pl.walk_minutes, pl.place_type, pl.has_room, pl.max_party_size,
+      pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
+      pl.signature_menu, pl.image_url, pl.is_trendy,
+      coalesce(ps.review_count, 0) as review_count,
+      ps.again_rate,
+      ps.avg_price_per_person,
+      photo.storage_path as thumbnail_url,
+      pps.purpose_review_count,
+      pps.purpose_again_rate,
+      wait.avg_wait_minutes,
+      dep.department as verifier_department
+    from places pl
+    left join place_stats ps on ps.place_id = pl.id
+    left join lateral (
+      select
+        count(r.id) as purpose_review_count,
+        round(count(*) filter (where r.verdict = 'again')::numeric / nullif(count(r.id), 0) * 100, 1) as purpose_again_rate
+      from reviews r
+      where r.place_id = pl.id and r.status = 'published' and r.purpose = 'lunch'
+    ) pps on true
+    left join lateral (
+      select round(avg(r.wait_minutes)::numeric, 0) as avg_wait_minutes
+      from reviews r
+      where r.place_id = pl.id and r.status = 'published' and r.purpose = 'lunch' and r.wait_minutes is not null
+    ) wait on true
+    left join lateral (
+      select pr.department
+      from reviews r2
+      join profiles pr on pr.id = r2.author_id
+      where r2.place_id = pl.id and r2.status = 'published' and r2.purpose = 'lunch'
+        and pr.department is not null and pr.department <> ''
+      order by r2.created_at desc
+      limit 1
+    ) dep on true
+    left join lateral (
+      select rp.storage_path
+      from review_photos rp
+      join reviews r3 on r3.id = rp.review_id
+      where r3.place_id = pl.id and r3.status = 'published'
+      order by r3.created_at desc, rp.sort_order asc
+      limit 1
+    ) photo on true
+    where pl.place_type in ('meal', 'both') and pl.walk_minutes is not null
+    order by pl.walk_minutes asc
+  `;
+  return rows as Record<string, unknown>[];
+}
+
 export async function getRecommendations(
   situation: Situation,
-  timeBudget: TimeBudgetKey,
-  priceBudget: PriceBudgetKey
+  timeBudget: TimeBudgetKey
 ): Promise<RecommendCandidate[]> {
   const budgetMinutes = timeBudgetMinutes(timeBudget);
 
-  if (situation === "trendy") {
-    // 👶 20대 동기들과 힙지로 핫플 — is_trendy가 켜진 곳(밥집/카페 무관), 전체
+  if (situation === "hearty" || situation === "light") {
+    // 🍲 든든한 국물/한식 충전 / 🥗 가벼운 점심/식단 — 둘러보기 화면의
+    // "가볍게/든든하게" 서브 필터(feed-display.ts의 mealWeightFor)와 완전히
+    // 같은 키워드 분류를 재사용한다. 새 키워드 목록을 여기 따로 만들지
+        // 않고 하나의 원본만 유지 — 두 화면이 서로 다르게 분류하는 걸 방지.
+    const rows = await fetchLunchCandidates();
+    const matched = rows.filter(
+      (r) => mealWeightFor({ name: r.name as string, category: (r.category as string) ?? null }) === situation
+    );
+    const candidates = matched.map((r) => deriveCandidate(r, situation, budgetMinutes));
+    return rankAndTake(candidates, 3);
+  }
+
+  if (situation === "hotplace") {
+    // 🌮 20대 힙지로 핫플 — is_trendy가 켜진 곳(밥집/카페 무관), 전체
     // 리뷰 통계 기준(특정 purpose로 좁히지 않음 — 힙플레이스는 방문 목적이
     // 다양해서).
-    const rows = await sql`
-      select
-        pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.kakao_url,
-        pl.walk_minutes, pl.place_type, pl.has_room, pl.max_party_size,
-        pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-        pl.signature_menu, pl.image_url, pl.is_trendy,
-        coalesce(ps.review_count, 0) as review_count,
-        ps.again_rate,
-        ps.avg_price_per_person,
-        photo.storage_path as thumbnail_url,
-        ps.review_count as purpose_review_count,
-        ps.again_rate as purpose_again_rate,
-        wait.avg_wait_minutes,
-        dep.department as verifier_department
-      from places pl
-      left join place_stats ps on ps.place_id = pl.id
-      left join lateral (
-        select round(avg(r.wait_minutes)::numeric, 0) as avg_wait_minutes
-        from reviews r
-        where r.place_id = pl.id and r.status = 'published' and r.wait_minutes is not null
-      ) wait on true
-      left join lateral (
-        select coalesce(nullif(r2.author_dept, ''), pr.department) as department
-        from reviews r2
-        left join profiles pr on pr.id = r2.author_id
-        where r2.place_id = pl.id and r2.status = 'published'
-          and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
-        order by r2.created_at desc
-        limit 1
-      ) dep on true
-      left join lateral (
-        select rp.storage_path
-        from review_photos rp
-        join reviews r3 on r3.id = rp.review_id
-        where r3.place_id = pl.id and r3.status = 'published'
-        order by r3.created_at desc, rp.sort_order asc
-        limit 1
-      ) photo on true
-      where pl.is_trendy = true and pl.walk_minutes is not null
-      order by pl.walk_minutes asc
-      limit 20
-    `;
-    const candidates = (rows as Record<string, unknown>[]).map((r) =>
-      deriveCandidate(r, situation, budgetMinutes, priceBudget)
-    );
+    const rows = await fetchOverallCandidates(["meal", "cafe", "both"]);
+    const matched = rows.filter((r) => r.is_trendy === true);
+    const candidates = matched.map((r) => deriveCandidate(r, situation, budgetMinutes));
     return rankAndTake(candidates, 3);
   }
 
-  if (situation === "client") {
-    // 👔 클라이언트/임원 접대 — 룸 필수. purpose='client' 리뷰 통계 우선.
-    const rows = await sql`
-      select
-        pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.kakao_url,
-        pl.walk_minutes, pl.place_type, pl.has_room, pl.max_party_size,
-        pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-        pl.signature_menu, pl.image_url, pl.is_trendy,
-        coalesce(ps.review_count, 0) as review_count,
-        ps.again_rate,
-        ps.avg_price_per_person,
-        photo.storage_path as thumbnail_url,
-        pps.purpose_review_count,
-        pps.purpose_again_rate,
-        wait.avg_wait_minutes,
-        dep.department as verifier_department
-      from places pl
-      left join place_stats ps on ps.place_id = pl.id
-      left join lateral (
-        select
-          count(r.id) as purpose_review_count,
-          round(count(*) filter (where r.verdict = 'again')::numeric / nullif(count(r.id), 0) * 100, 1) as purpose_again_rate
-        from reviews r
-        where r.place_id = pl.id and r.status = 'published' and r.purpose = 'client'
-      ) pps on true
-      left join lateral (
-        select round(avg(r.wait_minutes)::numeric, 0) as avg_wait_minutes
-        from reviews r
-        where r.place_id = pl.id and r.status = 'published' and r.purpose = 'client' and r.wait_minutes is not null
-      ) wait on true
-      left join lateral (
-        select coalesce(nullif(r2.author_dept, ''), pr.department) as department
-        from reviews r2
-        left join profiles pr on pr.id = r2.author_id
-        where r2.place_id = pl.id and r2.status = 'published' and r2.purpose = 'client'
-          and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
-        order by r2.created_at desc
-        limit 1
-      ) dep on true
-      left join lateral (
-        select rp.storage_path
-        from review_photos rp
-        join reviews r3 on r3.id = rp.review_id
-        where r3.place_id = pl.id and r3.status = 'published'
-        order by r3.created_at desc, rp.sort_order asc
-        limit 1
-      ) photo on true
-      where pl.has_room = true and pl.place_type in ('meal', 'both') and pl.walk_minutes is not null
-      order by pl.walk_minutes asc
-      limit 20
-    `;
-    const candidates = (rows as Record<string, unknown>[]).map((r) =>
-      deriveCandidate(r, situation, budgetMinutes, priceBudget)
-    );
-    return rankAndTake(candidates, 3);
-  }
-
-  if (situation === "speed") {
-    // ⚡️ 스피드 식사 — 회사에서 가까운 순, purpose='lunch' 리뷰 통계 우선.
-    const rows = await sql`
-      select
-        pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.kakao_url,
-        pl.walk_minutes, pl.place_type, pl.has_room, pl.max_party_size,
-        pl.has_outlet, pl.is_quiet, pl.long_stay_ok,
-        pl.signature_menu, pl.image_url, pl.is_trendy,
-        coalesce(ps.review_count, 0) as review_count,
-        ps.again_rate,
-        ps.avg_price_per_person,
-        photo.storage_path as thumbnail_url,
-        pps.purpose_review_count,
-        pps.purpose_again_rate,
-        wait.avg_wait_minutes,
-        dep.department as verifier_department
-      from places pl
-      left join place_stats ps on ps.place_id = pl.id
-      left join lateral (
-        select
-          count(r.id) as purpose_review_count,
-          round(count(*) filter (where r.verdict = 'again')::numeric / nullif(count(r.id), 0) * 100, 1) as purpose_again_rate
-        from reviews r
-        where r.place_id = pl.id and r.status = 'published' and r.purpose = 'lunch'
-      ) pps on true
-      left join lateral (
-        select round(avg(r.wait_minutes)::numeric, 0) as avg_wait_minutes
-        from reviews r
-        where r.place_id = pl.id and r.status = 'published' and r.purpose = 'lunch' and r.wait_minutes is not null
-      ) wait on true
-      left join lateral (
-        select coalesce(nullif(r2.author_dept, ''), pr.department) as department
-        from reviews r2
-        left join profiles pr on pr.id = r2.author_id
-        where r2.place_id = pl.id and r2.status = 'published' and r2.purpose = 'lunch'
-          and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
-        order by r2.created_at desc
-        limit 1
-      ) dep on true
-      left join lateral (
-        select rp.storage_path
-        from review_photos rp
-        join reviews r3 on r3.id = rp.review_id
-        where r3.place_id = pl.id and r3.status = 'published'
-        order by r3.created_at desc, rp.sort_order asc
-        limit 1
-      ) photo on true
-      where pl.place_type in ('meal', 'both') and pl.walk_minutes is not null
-      order by pl.walk_minutes asc
-      limit 20
-    `;
-    const candidates = (rows as Record<string, unknown>[]).map((r) =>
-      deriveCandidate(r, situation, budgetMinutes, priceBudget)
-    );
-    return rankAndTake(candidates, 3);
-  }
-
-  // 💻 외근/혼밥 — 밥집이면 'lunch', 카페면 'remote_work' 리뷰 통계를 각 행의
-  // place_type에 맞게 골라 쓴다(장소마다 다른 purpose라 SQL의 case로 처리).
+  // 💻 외근 & 노트북 작업 — 콘센트/조용함이 확인된 밥집·카페. 밥집이면
+  // 'lunch', 카페면 'remote_work' 리뷰 통계를 각 행의 place_type에 맞게
+  // 골라 쓴다(장소마다 다른 purpose라 SQL의 case로 처리).
   const rows = await sql`
     select
       pl.id, pl.name, pl.category, pl.road_address, pl.phone, pl.kakao_url,
@@ -371,12 +321,12 @@ export async function getRecommendations(
         and r.purpose = case when pl.place_type = 'meal' then 'lunch' else 'remote_work' end
     ) wait on true
     left join lateral (
-      select coalesce(nullif(r2.author_dept, ''), pr.department) as department
+      select pr.department
       from reviews r2
-      left join profiles pr on pr.id = r2.author_id
+      join profiles pr on pr.id = r2.author_id
       where r2.place_id = pl.id and r2.status = 'published'
         and r2.purpose = case when pl.place_type = 'meal' then 'lunch' else 'remote_work' end
-        and coalesce(nullif(r2.author_dept, ''), pr.department) is not null
+        and pr.department is not null and pr.department <> ''
       order by r2.created_at desc
       limit 1
     ) dep on true
@@ -388,12 +338,14 @@ export async function getRecommendations(
       order by r3.created_at desc, rp.sort_order asc
       limit 1
     ) photo on true
-    where pl.place_type in ('meal', 'cafe', 'both') and pl.walk_minutes is not null
+    where pl.place_type in ('meal', 'cafe', 'both')
+      and pl.walk_minutes is not null
+      and (pl.has_outlet = true or pl.is_quiet = true or pl.long_stay_ok = true)
     order by pl.walk_minutes asc
     limit 20
   `;
   const candidates = (rows as Record<string, unknown>[]).map((r) =>
-    deriveCandidate(r, situation, budgetMinutes, priceBudget)
+    deriveCandidate(r, situation, budgetMinutes)
   );
   return rankAndTake(candidates, 3);
 }

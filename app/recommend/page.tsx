@@ -9,14 +9,11 @@ import {
   getPairedCafe,
   isSituation,
   isTimeBudget,
-  isPriceBudget,
   timeBudgetMinutes,
   SITUATION_OPTIONS,
   TIME_BUDGET_OPTIONS,
-  PRICE_BUDGET_OPTIONS,
   type Situation,
   type TimeBudgetKey,
-  type PriceBudgetKey,
   type RecommendCandidate,
   type PairedCafe,
 } from "./recommend-queries";
@@ -31,11 +28,6 @@ function verificationLine(c: RecommendCandidate): string {
 }
 
 function facilityHighlight(situation: Situation, c: RecommendCandidate): string | null {
-  if (situation === "client") {
-    if (c.has_room && c.max_party_size) return `${c.max_party_size}인 개별 룸 완비`;
-    if (c.has_room) return "개별 룸 있음";
-    return null;
-  }
   if (situation === "remote") {
     const bits: string[] = [];
     if (c.has_outlet) bits.push("콘센트");
@@ -43,7 +35,7 @@ function facilityHighlight(situation: Situation, c: RecommendCandidate): string 
     if (c.long_stay_ok) bits.push("장시간 가능");
     return bits.length ? bits.join(" · ") : null;
   }
-  if (situation === "trendy" && c.is_trendy) return "🔥 20대 트렌드 핫플";
+  if (situation === "hotplace" && c.is_trendy) return "🔥 20대 트렌드 핫플";
   return null;
 }
 
@@ -92,23 +84,21 @@ function buildTimelineBanner(
 export default async function RecommendPage({
   searchParams,
 }: {
-  searchParams: Promise<{ situation?: string; time?: string; budget?: string }>;
+  searchParams: Promise<{ situation?: string; time?: string }>;
 }) {
   const params = await searchParams;
   const situationOk = isSituation(params.situation);
   const timeOk = isTimeBudget(params.time);
-  const budgetOk = isPriceBudget(params.budget);
 
-  if (!situationOk || !timeOk || !budgetOk) {
+  if (!situationOk || !timeOk) {
     return <RecommendInput />;
   }
 
   const situation = params.situation as Situation;
   const timeBudget = params.time as TimeBudgetKey;
-  const priceBudget = params.budget as PriceBudgetKey;
   const budgetMinutes = timeBudgetMinutes(timeBudget);
 
-  const candidates = await getRecommendations(situation, timeBudget, priceBudget);
+  const candidates = await getRecommendations(situation, timeBudget);
   const pairedCafes: (PairedCafe | null)[] = await Promise.all(
     candidates.map((c) =>
       c.place_type !== "cafe"
@@ -119,7 +109,6 @@ export default async function RecommendPage({
 
   const situationMeta = SITUATION_OPTIONS.find((s) => s.value === situation)!;
   const timeMeta = TIME_BUDGET_OPTIONS.find((t) => t.value === timeBudget)!;
-  const priceMeta = PRICE_BUDGET_OPTIONS.find((p) => p.value === priceBudget)!;
   const recommendedIds = candidates.map((c) => c.id);
   const top = candidates[0];
   const banner = top ? buildTimelineBanner(top) : null;
@@ -137,7 +126,7 @@ export default async function RecommendPage({
       </header>
 
       <div className={styles.conditionSummary}>
-        {situationMeta.label} · {timeMeta.label} · {priceMeta.label}
+        {situationMeta.label} · {timeMeta.label}
       </div>
 
       {candidates.length === 0 && (
@@ -188,8 +177,7 @@ export default async function RecommendPage({
                     </span>
                     {c.avg_price_per_person != null && (
                       <span className={styles.badge}>
-                        1인 {c.avg_price_per_person.toLocaleString()}원
-                        {!c.fits_price_budget ? " (예산과 다를 수 있음)" : ""}
+                        1인 평균 {c.avg_price_per_person.toLocaleString()}원
                       </span>
                     )}
                     {highlight && <span className={styles.badgeAccent}>{highlight}</span>}
@@ -240,7 +228,6 @@ export default async function RecommendPage({
                 <DecideButton
                   situation={situation}
                   timeBudget={timeBudget}
-                  priceBudget={priceBudget}
                   placeId={c.id}
                   placeType={c.place_type}
                   recommendedIds={recommendedIds}
