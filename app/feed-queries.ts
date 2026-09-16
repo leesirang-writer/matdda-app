@@ -364,7 +364,10 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
 
   // 멋따라 (카페·공간): place_type이 cafe 또는 both인 곳만.
   if (filter === "trendy") {
-    // 힙플레이스·디저트 — 관리자가 /admin에서 직접 켠 20대 인기 카페만.
+    // 힙플레이스·디저트 — 등록된 카페 전체를 보여준다. 원래는 관리자가
+    // /admin에서 켠 "20대 인기"(is_trendy) 카페만 노출했는데, 그러면
+    // 대부분의 카페가 안 보여서(사용자 확인, 2026-09-16) 조건을 없앰 —
+    // 대신 is_trendy인 곳이 먼저 오도록 정렬만 살려둔다.
     // 2026-09-15(14차)부터 STYLE_DEFAULT_FILTER가 됨(예전엔 remote가 기본).
     const rows = await sql`
       select
@@ -401,8 +404,8 @@ export async function getFeedPlaces(axis: FeedAxis, filter: string): Promise<Fee
         from reviews rv
         where rv.place_id = pl.id and rv.status = 'published'
       ) vote on true
-      where pl.place_type in ('cafe', 'both') and pl.is_trendy = true
-      order by pl.name asc
+      where pl.place_type in ('cafe', 'both')
+      order by pl.is_trendy desc, pl.name asc
     `;
     return (rows as Record<string, unknown>[]).map(normalizePlaceRow);
   }

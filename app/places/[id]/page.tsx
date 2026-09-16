@@ -28,9 +28,11 @@ export default async function PlaceDetailPage({
   const [place, reviews] = await Promise.all([getPlaceDetail(id), getPlaceReviews(id)]);
   if (!place) notFound();
 
-  // 접대용 팩트는 식사 가능한 장소에서, 외근용 팩트는 카페 성격 장소에서만 의미가
-  // 있으므로 place_type에 맞는 섹션만 보여준다.
-  const showClientFacts = place.place_type === "meal" || place.place_type === "both";
+  // 외근용 팩트는 카페 성격 장소에서만 의미가 있으므로 place_type에 맞는
+  // 섹션만 보여준다. (2026-09-16: "접대 꿀팁 체크리스트" 섹션은 사용자
+  // 요청으로 상세 페이지에서 제거 — has_room/max_party_size/
+  // reservation_required/has_parking 데이터 자체와 둘러보기 카드의 "룸
+  // 있음"/"최대 인원" 배지(showClientBadges)는 그대로 유지.)
   const showRemoteFacts = place.place_type === "cafe" || place.place_type === "both";
 
   return (
@@ -68,33 +70,14 @@ export default async function PlaceDetailPage({
           )}
         </section>
 
-        {(showClientFacts || showRemoteFacts) && (
+        {showRemoteFacts && (
           <section className={styles.factsSection}>
-            {showClientFacts && (
-              <>
-                <h2 className={styles.sectionTitle}>👔 접대 꿀팁 체크리스트</h2>
-                <div className={styles.factGrid}>
-                  <FactRow label="룸/개별공간" state={boolState(place.has_room)} />
-                  <FactRow
-                    label="최대 인원"
-                    state={place.max_party_size != null ? "yes" : "unknown"}
-                    yesText={place.max_party_size != null ? `${place.max_party_size}명` : undefined}
-                  />
-                  <FactRow label="예약 필수" state={boolState(place.reservation_required)} />
-                  <FactRow label="주차 가능" state={boolState(place.has_parking)} />
-                </div>
-              </>
-            )}
-            {showRemoteFacts && (
-              <>
-                <h2 className={styles.sectionTitle}>💻 외근 꿀팁 체크리스트</h2>
-                <div className={styles.factGrid}>
-                  <FactRow label="콘센트" state={boolState(place.has_outlet)} />
-                  <FactRow label="조용함" state={boolState(place.is_quiet)} />
-                  <FactRow label="장시간 체류" state={boolState(place.long_stay_ok)} />
-                </div>
-              </>
-            )}
+            <h2 className={styles.sectionTitle}>💻 외근 꿀팁 체크리스트</h2>
+            <div className={styles.factGrid}>
+              <FactRow label="콘센트" state={boolState(place.has_outlet)} />
+              <FactRow label="조용함" state={boolState(place.is_quiet)} />
+              <FactRow label="장시간 체류" state={boolState(place.long_stay_ok)} />
+            </div>
           </section>
         )}
 

@@ -18,12 +18,10 @@ import {
   trendyBadgeLabel,
   inferVotePurpose,
   findPairedCafe,
-  mealWeightFor,
   IMAGE_FALLBACK_PLACEHOLDER,
   type FeedPlace,
   type PlaceLite,
   type PairedCafe,
-  type MealWeight,
 } from "./feed-display";
 import { castQuickVote } from "./feed-vote-actions";
 import { QuickTipModal } from "./quick-tip-modal";
@@ -84,14 +82,7 @@ export default function FeedBrowser({
   const [query, setQuery] = useState("");
   const [distance, setDistance] = useState<DistanceKey | null>(null);
   const [sort, setSort] = useState<SortKey>("distance");
-  const [mealWeight, setMealWeight] = useState<MealWeight | null>(null);
   const [gnbTipOpen, setGnbTipOpen] = useState(false);
-
-  // "든든한 점심"(food/lunch)을 보고 있을 때만 그날 컨디션에 맞춘 가벼운/든든한
-  // 한 끼 서브 필터를 노출한다 — 다른 상황(가벼운 점심/힙지로 트렌드/멋따라)에서는
-  // 굳이 물을 필요가 없는 조건이라 칩 자체를 숨긴다(2026-09-08, 9차 도입분을
-  // 18차 정리 과정에서 복원).
-  const isLunchFilter = axis === "food" && filter === "lunch";
 
   // 2026-09-16(18차): "맛따라+멋따라" 카드 하단 "☕️ 추천 코스" 태그용 카페
   // 후보 — allPlaces(GNB 꿀팁 검색용으로 이미 받아온 전체 목록)에서
@@ -118,9 +109,6 @@ export default function FeedBrowser({
       ) {
         return false;
       }
-      if (isLunchFilter && mealWeight && mealWeightFor(p) !== mealWeight) {
-        return false;
-      }
       if (!q) return true;
       const haystack = [p.name, p.signature_menu ?? "", p.category ?? ""]
         .join(" ")
@@ -142,7 +130,7 @@ export default function FeedBrowser({
     });
 
     return list;
-  }, [places, query, distance, sort, mealWeight, isLunchFilter]);
+  }, [places, query, distance, sort]);
 
   const serverEmpty = places.length === 0;
   const clientEmpty = !serverEmpty && filteredSorted.length === 0;
@@ -254,36 +242,18 @@ export default function FeedBrowser({
           <div className={styles.sidebarCard}>
             <div className={styles.sidebarTitle}>어떤 상황인가요?</div>
             <div className={styles.filterList}>
+              {/* 2026-09-16: "가볍게/든든하게" 서브 필터는 사용자 요청으로 다시
+                  제거 — mealWeightFor/MealWeight는 feed-display.ts에 계속
+                  남겨둔다(리포에 있는 use-feed-filters.ts가 여전히 참조 중이라
+                  지우면 빌드가 다시 깨짐), UI에서만 안 쓴다. */}
               {filterTabs.map((f) => (
-                <div key={f.value} className={styles.filterItem}>
-                  <Link
-                    href={f.href}
-                    className={f.active ? styles.filterBtnActive : styles.filterBtn}
-                  >
-                    {f.label}
-                  </Link>
-                  {/* '든든한 점심'이 켜져 있을 때만: 그날 컨디션에 맞춰 가벼운 한 끼 /
-                      든든한 한 끼로 더 좁혀볼 수 있는 서브 필터. 토글이라 한 번 더
-                      누르면 해제된다. */}
-                  {isLunchFilter && f.value === "lunch" && f.active && (
-                    <div className={styles.mealWeightChips}>
-                      <button
-                        type="button"
-                        onClick={() => setMealWeight((cur) => (cur === "light" ? null : "light"))}
-                        className={mealWeight === "light" ? styles.chipActive : styles.chip}
-                      >
-                        🥗 가볍게
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMealWeight((cur) => (cur === "hearty" ? null : "hearty"))}
-                        className={mealWeight === "hearty" ? styles.chipActive : styles.chip}
-                      >
-                        🍲 든든하게
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <Link
+                  key={f.value}
+                  href={f.href}
+                  className={f.active ? styles.filterBtnActive : styles.filterBtn}
+                >
+                  {f.label}
+                </Link>
               ))}
             </div>
           </div>
