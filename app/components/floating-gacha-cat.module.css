@@ -1,0 +1,40 @@
+/* 2026-09-17(20차-1): 플로팅 가챠 위젯의 말풍선 — 살짝 둥실거리는 float
+   애니메이션과, 순수 CSS로 그린 말풍선 꼬리표(테두리색 삼각형 위에 흰색
+   삼각형을 1px 겹쳐서 "테두리 있는 꼬리표"처럼 보이게 함). 나머지 레이아웃/
+   호버 효과는 전부 Tailwind 유틸리티 클래스로 처리하고, Tailwind 기본
+   유틸만으로는 만들기 까다로운 이 두 가지만 별도 CSS 모듈로 뺐다. */
+.bubble {
+  position: relative;
+  animation: gachaBubbleFloat 2.4s ease-in-out infinite;
+}
+.bubbleTail {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid #e9d5ff; /* tailwind purple-200, 말풍선 테두리색과 통일 */
+}
+.bubbleTail::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: -8px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #fff;
+}
+@keyframes gachaBubbleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}

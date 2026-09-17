@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { FloatingGachaCat } from "./components/floating-gacha-cat";
 
 // 2026-09-08(10차): 사용자 요청으로 "캐치테이블/토스" 스타일의 깔끔한
 // 모던 미니멀 디자인으로 전환하면서, 폰트도 next/font/google(Geist)
@@ -25,7 +26,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/* 2026-09-17(20차-1): 어느 페이지에서든 항상 접근 가능한 가챠
+            진입점 — 자세한 배경은 floating-gacha-cat.tsx 상단 주석 참고. */}
+        <FloatingGachaCat />
+      </body>
     </html>
   );
 }
