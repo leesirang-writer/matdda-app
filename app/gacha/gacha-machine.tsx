@@ -56,12 +56,34 @@ export function GachaMachine() {
   }
 
   if (phase !== "result" || !result) {
+    const spinning = phase === "spinning";
     return (
       <div className={styles.machine}>
-        <div className={`${styles.reelRow} ${phase === "spinning" ? styles.reelRowSpinning : ""}`}>
-          <span className={styles.reelIcon}>🍽️</span>
-          <span className={styles.reelIcon}>☕️</span>
-          <span className={styles.reelIcon}>🎲</span>
+        <div className={styles.machineTop}>
+          <div className={`${styles.reelRow} ${spinning ? styles.reelRowSpinning : ""}`}>
+            <span className={styles.reelIcon}>🍽️</span>
+            <span className={styles.reelIcon}>☕️</span>
+            <span className={styles.reelIcon}>🎲</span>
+          </div>
+          {/* 2026-09-17(20차-3): "레버 당기는 모션" 요청 — 텍스트만 "레버
+              당기기"였던 버튼 옆에 실제 슬롯머신 손잡이처럼 생긴 미니 레버를
+              추가함. 이 레버 자체도 클릭하면 pull()을 그대로 호출해서
+              버튼과 동일하게 동작하고, 손잡이(leverKnob)가 클릭 시
+              0.7초짜리 "아래로 당겨졌다가 통통 튀며 원위치" 애니메이션
+              (leverPulling → gacha.module.css의 @keyframes leverPull)을
+              1회 재생한다. */}
+          <button
+            type="button"
+            className={`${styles.lever} ${spinning ? styles.leverPulling : ""}`}
+            onClick={pull}
+            disabled={spinning || isPending}
+            aria-label="레버 당겨서 뽑기"
+          >
+            <span className={styles.leverTrack}>
+              <span className={styles.leverKnob} />
+            </span>
+            <span className={styles.leverBase} />
+          </button>
         </div>
         <button
           type="button"
