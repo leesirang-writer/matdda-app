@@ -24,6 +24,7 @@ export function WeeklyRanking({
   return (
     <div className={styles.sidebarCard}>
       <div className={styles.sidebarTitle}>🏆 KPR 주간 랭킹 TOP 5</div>
+      <p className={styles.rankingSubtitle}>동료들의 &apos;또 갈래요&apos; 투표 기준</p>
       <div className={styles.rankingTabs}>
         <button
           type="button"

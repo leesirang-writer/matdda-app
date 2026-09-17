@@ -85,6 +85,13 @@ export default function RecommendInput() {
       >
         {canSubmit ? "🎯 추천 받기" : "조건을 모두 골라주세요"}
       </button>
+
+      {/* 2026-09-17(20차): GNB에 따로 있던 가챠 진입 버튼을 이 화면 안으로
+          옮겨왔다 — 사용자 요청("추천 버튼이 3개나 있어 난잡하다"). 상황·
+          시간을 고르는 것도 귀찮은 날을 위한 대안 동선으로 아래에 배치. */}
+      <Link href="/gacha" className={styles.gachaLink}>
+        🎲 그냥 랜덤으로 뽑아줘 (가챠)
+      </Link>
     </div>
   );
 }

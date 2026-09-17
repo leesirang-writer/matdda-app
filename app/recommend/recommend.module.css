@@ -136,6 +136,32 @@
   cursor: not-allowed;
 }
 
+/* 2026-09-17(20차): GNB에 따로 있던 "🎰 가챠 뽑기" 버튼을 없애고, 조건
+   추천 입력 화면 안으로 옮겨온 보조 진입 링크 — "상황·시간 고르는 것도
+   귀찮으면 그냥 랜덤으로" 대안 동선. 기존 가챠 버튼과 같은 계열(오렌지)
+   색으로 눈에 띄되, 주 버튼(submitButton)보다는 낮은 위계로 둔다. */
+.gachaLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 0;
+  border-radius: 12px;
+  border: 1.5px dashed oklch(80% 0.09 55);
+  background: oklch(98% 0.02 55);
+  color: oklch(52% 0.15 40);
+  font-weight: 700;
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.gachaLink:hover {
+  border-color: oklch(70% 0.15 45);
+  background: oklch(95% 0.04 55);
+}
+
 /* ---------- 결과 화면 ---------- */
 .conditionSummary {
   text-align: center;

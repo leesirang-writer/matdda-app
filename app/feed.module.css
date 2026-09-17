@@ -65,21 +65,6 @@
   color: var(--text-primary);
 }
 
-/* 2026-09-16(16차): "KPR의 점심시간은 90분이다" 브랜드 카피 한 줄.
-   GNB 바로 아래 얇은 서브 배너로 — 기존 레이아웃/컴포넌트 구조는 건드리지
-   않고 순수 텍스트 줄 하나만 추가. */
-.taglineBar {
-  padding: 7px 32px;
-  background: var(--accent-purple-soft);
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: 13px;
-  color: var(--accent-purple-dark);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .gnbSearchWrap {
   flex: 1;
   max-width: 560px;
@@ -165,21 +150,6 @@
 .gnbTabBtnRecommend:hover {
   box-shadow: var(--shadow-md);
 }
-/* 2026-09-16(19차): "🎰 오늘 점심 가챠 뽑기!" 진입 버튼 — 조건 추천과는
-   다른 계열 색(따뜻한 오렌지)으로 눈에 띄게 구분한다. */
-.gnbTabBtnGacha {
-  composes: gnbTabBtn;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, var(--accent-warm), #ff6b3d);
-  color: #fff;
-  font-weight: 700;
-  box-shadow: var(--shadow-soft);
-}
-.gnbTabBtnGacha:hover {
-  box-shadow: var(--shadow-md);
-}
 .recommendBadge {
   font-size: 10px;
   font-weight: 800;
@@ -254,6 +224,11 @@
      있게 함. */
   max-height: calc(100vh - 92px - 24px);
   overflow-y: auto;
+  /* 2026-09-17(20차): 랭킹 위젯이 스크롤 맨 끝에서 화면 경계에 바짝 붙어
+     보이던 것을 사용자가 지적 — 아래쪽에 여유 패딩을 줘서 마지막까지
+     스크롤했을 때도 시원한 여백이 남게 함. 스크롤바 쪽 카드 테두리가
+     눌리지 않도록 우측에도 약간의 여백을 둠. */
+  padding: 2px 6px 28px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle) transparent;
   display: flex;
@@ -269,42 +244,6 @@
 }
 .sidebar::-webkit-scrollbar-track {
   background: transparent;
-}
-/* 2026-09-16(18차): 사이드바 최상단 대형 배너 — 잘 안 보이던 [조건 추천]
-   (킬러 기능)으로 시선을 바로 끌어오기 위한 장치. 필터가 3개로 줄어들면서
-   생긴 여유 공간에 자연스럽게 들어간다. */
-.recommendBanner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 18px 18px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-dark));
-  box-shadow: var(--shadow-md);
-  text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.recommendBanner:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(99, 68, 231, 0.32);
-}
-.recommendBannerText {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-display), sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #fff;
-  letter-spacing: -0.01em;
-  word-break: keep-all;
-}
-.recommendBannerArrow {
-  flex-shrink: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #fff;
 }
 
 .sidebarCard {
@@ -506,10 +445,15 @@
   cursor: pointer;
 }
 
+/* 2026-09-17(20차): 12:7 → 16:10으로 비율 조정(사용자 지정) — object-fit:
+   cover와 aspect-ratio를 함께 쓰고 있어 원본 사진 크기와 무관하게 모든
+   카드의 썸네일 높이가 항상 동일하게 고정된다(6차부터 있던 방식, 비율
+   값만 갱신). */
 .cardThumbWrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 12 / 7;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
   background: var(--surface-bg);
   flex-shrink: 0;
 }
@@ -745,6 +689,14 @@
 }
 
 /* ---------- 사이드바 하단 "🏆 KPR 주간 랭킹 TOP 5" 위젯 (19차) ---------- */
+/* 2026-09-17(20차): 정렬 기준을 사이드바에서도 바로 알 수 있게 라벨을
+   추가(사용자 요청) — ranking-queries.ts의 실제 정렬 기준(투표 수 →
+   재방문율 → 도보시간)을 한 줄로 압축한 문구. */
+.rankingSubtitle {
+  margin: -4px 0 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
 .rankingTabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

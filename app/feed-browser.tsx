@@ -50,10 +50,14 @@ export type FilterTab = {
 type SortKey = "distance" | "again_rate" | "price";
 type DistanceKey = "near" | "far";
 
+// 2026-09-17(20차): 라벨을 사용자가 요청한 문구(이모지 포함)로 맞추고,
+// "재방문율 높은 순"이 실제로는 투표가 갈린 소수 리뷰에서 재방문율만
+// 보다 보니 체감 정렬 효과가 약하다는 지적을 반영해 "또 갈래요 투표 수"를
+// 1차 기준으로 승격했다(재방문율은 동점일 때만 2차 기준으로 사용).
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "distance", label: "거리 가까운 순" },
-  { value: "again_rate", label: "재방문율 높은 순" },
-  { value: "price", label: "가격 낮은 순" },
+  { value: "distance", label: "📍 거리 가까운 순" },
+  { value: "again_rate", label: "🔥 또 갈래요 많은 순" },
+  { value: "price", label: "💰 1인 가격 낮은 순" },
 ];
 
 // 2026-09-16(18차): 3단계(5분/6~10분/11~15분)였던 거리 필터를 사용자 요청으로
@@ -127,17 +131,30 @@ export default function FeedBrowser({
       return haystack.includes(q);
     });
 
+    // 2026-09-17(20차): 세 정렬 기준 모두 동점일 때를 위한 2차 기준을
+    // 명시적으로 추가했다 — 예전엔 동점 처리가 배열 원래 순서(도보시간
+    // 오름차순)에 암묵적으로 기대고 있었는데, 그러면 "정렬을 바꿨는데
+    // 카드 순서가 그대로인 것처럼 보인다"는 오해를 살 수 있어서 항상
+    // 눈에 띄게 재배열되도록 정리함.
     list = [...list].sort((a, b) => {
       if (sort === "distance") {
-        return (a.walk_minutes ?? 999) - (b.walk_minutes ?? 999);
+        const ad = a.walk_minutes ?? 999;
+        const bd = b.walk_minutes ?? 999;
+        if (ad !== bd) return ad - bd;
+        return a.name.localeCompare(b.name, "ko");
       }
       if (sort === "again_rate") {
+        // "또 갈래요" 투표 수를 1차 기준으로, 재방문율(%)을 2차 기준으로 —
+        // 투표가 하나도 없는 곳들끼리는 재방문율도 없으니(-1) 결국 원래
+        // 배열 순서(도보시간순)로 자연스럽게 남는다.
+        if (b.again_count !== a.again_count) return b.again_count - a.again_count;
         return (b.again_rate ?? -1) - (a.again_rate ?? -1);
       }
       // price
       const ap = a.avg_price_per_person ?? Number.MAX_SAFE_INTEGER;
       const bp = b.avg_price_per_person ?? Number.MAX_SAFE_INTEGER;
-      return ap - bp;
+      if (ap !== bp) return ap - bp;
+      return a.name.localeCompare(b.name, "ko");
     });
 
     return list;
@@ -194,16 +211,16 @@ export default function FeedBrowser({
         </div>
 
         <div className={styles.gnbRight}>
+          {/* 2026-09-17(20차): GNB를 [둘러보기]/[조건 추천] 2개 메인 탭으로
+              압축 — 사용자 요청("추천 유도 버튼이 3개나 있어 난잡하다").
+              가챠 진입 버튼은 삭제하지 않고 /recommend 입력 화면 내부의
+              "🎲 랜덤 뽑기" 링크로 옮겨서 기능은 그대로 유지함(아래
+              recommend-input.tsx 참고). */}
           <nav className={styles.gnbTabs}>
             <span className={styles.gnbTabBtnActive}>둘러보기</span>
             <Link href="/recommend" className={styles.gnbTabBtnRecommend}>
-              조건 추천
+              🎯 조건 추천
               <span className={styles.recommendBadge}>✨ 90분 코스</span>
-            </Link>
-            {/* 2026-09-16(19차): 신규 가챠 페이지 진입 버튼 — GNB 우측, 항상
-                보이는 위치에 배치해 눈에 띄게 한다. */}
-            <Link href="/gacha" className={styles.gnbTabBtnGacha}>
-              🎰 오늘 점심 가챠 뽑기!
             </Link>
           </nav>
           <button
@@ -219,25 +236,16 @@ export default function FeedBrowser({
         </div>
       </header>
 
-      <div className={styles.taglineBar}>
-        어떻게 사람이 밥만 먹고 살아요? KPR 총무팀이 엄선한 90분 점심·커피 큐레이션 가이드
-      </div>
-
       {gnbTipOpen && (
         <QuickTipModal allPlaces={allPlaces} onClose={() => setGnbTipOpen(false)} />
       )}
 
       <div className={styles.body}>
         <aside className={styles.sidebar}>
-          <Link href="/recommend" className={styles.recommendBanner}>
-            <span className={styles.recommendBannerText}>
-              오늘 점심 뭐 먹지?
-              <br />
-              KPR 90분 밥+카페 풀코스 추천받기
-            </span>
-            <span className={styles.recommendBannerArrow}>➔</span>
-          </Link>
-
+          {/* 2026-09-17(20차): 사이드바 최상단 보라색 대형 배너 삭제 — 사용자
+              요청("굳이 있을 필요 없다"). 메인 콘텐츠 최상단의 마스코트
+              배너(MascotBanner, "추천받기 ➔"→/recommend)가 이미 같은
+              역할을 하고 있어 기능 손실 없이 정리됨. */}
           <div className={styles.sidebarCard}>
             <div className={styles.sidebarTitle}>카테고리</div>
             <div className={styles.axisSwitch}>
