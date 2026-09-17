@@ -245,9 +245,30 @@
   flex-shrink: 0;
   position: sticky;
   top: 92px;
+  /* 2026-09-16(19차-버그수정): 사이드바에 랭킹 위젯이 추가되면서 내용
+     전체 높이가 뷰포트보다 길어짐 — position:sticky는 자기 내부를
+     스크롤시켜주지 않고 뷰포트에 "고정"만 되므로, 뷰포트보다 아래에
+     있는 부분(랭킹 위젯 등)이 페이지를 아무리 스크롤해도 아예 안 보이는
+     문제가 있었음(사용자 스크린샷으로 실제 확인됨). 사이드바 자체에
+     세로 스크롤을 줘서 마우스 휠로 사이드바 내부를 내려서 끝까지 볼 수
+     있게 함. */
+  max-height: calc(100vh - 92px - 24px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 999px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
 }
 /* 2026-09-16(18차): 사이드바 최상단 대형 배너 — 잘 안 보이던 [조건 추천]
    (킬러 기능)으로 시선을 바로 끌어오기 위한 장치. 필터가 3개로 줄어들면서
@@ -454,6 +475,8 @@
   .sidebar {
     width: 100%;
     position: static;
+    max-height: none;
+    overflow-y: visible;
   }
   .grid {
     grid-template-columns: 1fr;
