@@ -297,10 +297,38 @@
   color: var(--accent-purple);
 }
 
+/* 2026-09-21(21차): "어떤 상황인가요?" 카드 안에서 항상 활성 상태로 보이는
+   "전체" 중제목 — 실제 필터 값이 아니라, 아래 filterList가 전체 중 상황별로
+   나눈 하위 항목이라는 걸 보여주는 라벨. */
+.filterAllLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent-purple);
+  background: var(--accent-purple-soft);
+  border-radius: 999px;
+  padding: 5px 12px;
+  margin-bottom: 10px;
+}
+.filterAllCheck {
+  font-size: 7px;
+}
+
 .filterList {
   display: flex;
   flex-direction: column;
   gap: 7px;
+}
+/* filterAllLabel 아래 "소제목"처럼 보이도록 왼쪽에 얇은 세로선 + 들여쓰기 —
+   "회사에서 거리" 카드는 "전체" 라벨이 없으므로 filterList를 그대로 쓰고,
+   "어떤 상황인가요" 카드만 이 변형을 쓴다. */
+.filterSubList {
+  composes: filterList;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-subtle);
 }
 .filterBtn {
   width: 100%;

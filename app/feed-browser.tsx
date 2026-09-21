@@ -17,11 +17,9 @@ import {
   thumbnailFor,
   trendyBadgeLabel,
   inferVotePurpose,
-  findPairedCafe,
   IMAGE_FALLBACK_PLACEHOLDER,
   type FeedPlace,
   type PlaceLite,
-  type PairedCafe,
 } from "./feed-display";
 import { castQuickVote } from "./feed-vote-actions";
 import { QuickTipModal } from "./quick-tip-modal";
@@ -54,10 +52,16 @@ type DistanceKey = "near" | "far";
 // "재방문율 높은 순"이 실제로는 투표가 갈린 소수 리뷰에서 재방문율만
 // 보다 보니 체감 정렬 효과가 약하다는 지적을 반영해 "또 갈래요 투표 수"를
 // 1차 기준으로 승격했다(재방문율은 동점일 때만 2차 기준으로 사용).
+//
+// 2026-09-21(21차): "💰 1인 가격 낮은 순"을 목록에서 뺐다 — 아직 가격
+// 데이터(avg_price_per_person)가 거의 채워지지 않아 정렬해봐야 체감
+// 효과가 없다는 사용자 판단("가격은 추후 업데이트에 반영"). SortKey
+// 타입과 아래 정렬 함수의 "price" 분기는 그대로 남겨둠(가격 데이터가
+// 쌓이면 이 배열에 한 줄만 다시 추가하면 되도록) — mealWeightFor를
+// UI에서만 안 쓰고 코드에는 남겨둔 것과 동일한 관례.
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "distance", label: "📍 거리 가까운 순" },
   { value: "again_rate", label: "🔥 또 갈래요 많은 순" },
-  { value: "price", label: "💰 1인 가격 낮은 순" },
 ];
 
 // 2026-09-16(18차): 3단계(5분/6~10분/11~15분)였던 거리 필터를 사용자 요청으로
@@ -98,18 +102,6 @@ export default function FeedBrowser({
   const [distance, setDistance] = useState<DistanceKey | null>(null);
   const [sort, setSort] = useState<SortKey>("distance");
   const [gnbTipOpen, setGnbTipOpen] = useState(false);
-
-  // 2026-09-16(18차): "맛따라+멋따라" 카드 하단 "☕️ 추천 코스" 태그용 카페
-  // 후보 — allPlaces(GNB 꿀팁 검색용으로 이미 받아온 전체 목록)에서
-  // 카페(cafe/both)이면서 도보시간을 아는 곳만 추린다. 새 쿼리 없이 이미
-  // 있는 데이터로 계산.
-  const cafeCandidates = useMemo(
-    () =>
-      allPlaces.filter(
-        (p) => (p.place_type === "cafe" || p.place_type === "both") && p.walk_minutes != null
-      ),
-    [allPlaces]
-  );
 
   const filteredSorted = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -265,7 +257,16 @@ export default function FeedBrowser({
 
           <div className={styles.sidebarCard}>
             <div className={styles.sidebarTitle}>어떤 상황인가요?</div>
-            <div className={styles.filterList}>
+            {/* 2026-09-21(21차): "전체"를 항상 활성 상태인 중제목으로 얹고,
+                실제 선택지(filterTabs)는 그 아래 소제목처럼 들여써서 보여달라는
+                요청. 실제로 "전체"라는 별도 필터 값이 새로 생긴 건 아니다 —
+                맛따라/멋따라 둘 다 "전체 밥집/카페 중 상황별로 나눈 것"이라는
+                걸 시각적으로 보여주는 라벨일 뿐이고, 클릭 동작이나 URL 로직은
+                전혀 안 바뀜(filterTabs가 여전히 유일한 실제 필터). */}
+            <div className={styles.filterAllLabel} aria-hidden="true">
+              <span className={styles.filterAllCheck}>●</span> 전체
+            </div>
+            <div className={styles.filterSubList}>
               {/* 2026-09-16: "가볍게/든든하게" 서브 필터는 사용자 요청으로 다시
                   제거 — mealWeightFor/MealWeight는 feed-display.ts에 계속
                   남겨둔다(리포에 있는 use-feed-filters.ts가 여전히 참조 중이라
@@ -350,13 +351,7 @@ export default function FeedBrowser({
           {!serverEmpty && !clientEmpty && (
             <div className={styles.grid}>
               {filteredSorted.map((p) => (
-                <FeedCard
-                  key={p.id}
-                  place={p}
-                  axis={axis}
-                  filter={filter}
-                  pairedCafe={axis === "food" ? findPairedCafe(p, cafeCandidates) : null}
-                />
+                <FeedCard key={p.id} place={p} axis={axis} filter={filter} />
               ))}
             </div>
           )}
@@ -370,13 +365,10 @@ function FeedCard({
   place,
   axis,
   filter,
-  pairedCafe,
 }: {
   place: FeedPlace;
   axis: "food" | "style";
   filter: string;
-  /** "☕️ 추천 코스" 태그 — food 축 카드에서만 계산해서 넘어온다(없으면 숨김). */
-  pairedCafe: PairedCafe | null;
 }) {
   const hasReviews = place.review_count > 0;
   const showClientBadges = axis === "food" && filter === "client";
@@ -462,12 +454,12 @@ function FeedCard({
             <span className={styles.badge}>장시간 가능</span>
           )}
         </div>
-
-        {pairedCafe && (
-          <div className={styles.pairedCafeTag}>
-            ☕️ 추천 코스: {pairedCafe.name} (도보 {pairedCafe.walkMinutes}분)
-          </div>
-        )}
+        {/* 2026-09-21(21차): "☕️ 추천 코스" 태그(18차에서 추가) 삭제 — 사용자
+            요청. 아직 실제 리뷰가 하나도 없는 상태에서 "추천 코스"라는
+            확정적인 문구가 붙는 게 시기상조라는 판단(18차부터 있던
+            findPairedCafe()/PairedCafe 자체는 feed-display.ts에 그대로
+            남겨둠 — 리뷰가 쌓인 뒤 다시 노출하고 싶어지면 언제든 복원 가능,
+            가벼운 점심/든든한 점심 mealWeightFor 관례와 동일). */}
       </div>
     </>
   );

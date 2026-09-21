@@ -44,15 +44,48 @@ export type FeedPlace = {
 /** 원터치 반응/꿀팁 제보 모달이 공통으로 쓰는 방문 목적 값. */
 export type VotePurpose = "client" | "remote_work" | "lunch" | "dinner" | "cafe";
 
-/** "15초 꿀팁 제보" 모달의 소속팀 선택지 — quick-tip-modal.tsx와
- * quick-tip-actions.ts(서버 검증)가 이 원본 하나를 함께 쓴다. */
-export const QUICK_TIP_DEPARTMENTS = [
-  "홍보본부",
-  "디지털본부",
-  "경영지원/총무",
-  "기획",
-  "기타",
+/** "15초 꿀팁 제보" 모달의 소속팀 선택지 — 본부/부문별로 그룹핑된 실제 팀
+ * 목록. 2026-09-21(21차): 사용자가 올려준 "추석 연휴 출근인원" 엑셀 파일
+ * (본부별 시트에 실제 팀명이 나열돼 있음)을 근거로, 기존의 뭉뚱그린
+ * 5개("홍보본부"/"디지털본부" 등, 실제 조직과 다름)를 실제 10개 본부/부문·
+ * 20개 팀으로 교체함. 팀명이 구체적으로 나온 5개 본부(디컴/크리/커뮤/미디어/
+ * 콜라보K)는 팀 단위로 세분화하고, 그 엑셀에 팀명이 비어 있던 5개 본부·실
+ * (KPR Public/ESG전략실/경영지원실/코핸즈/브라이트벨)은 팀 세분화 없이
+ * 본부/실 이름 그대로 선택지로 둠(정직한 데이터 원칙 — 모르는 팀명을
+ * 지어내지 않음). 항목 수가 20개를 넘어가면서 기존의 가로 칩(chip) UI로는
+ * 다 안 보이고 줄바꿈이 지저분해지므로, quick-tip-modal.tsx에서 이 구조를
+ * <select>+<optgroup>(본부별 그룹)로 바꿔서 쓴다. */
+export type QuickTipDepartmentGroup = { label: string; options: readonly string[] };
+
+export const QUICK_TIP_DEPARTMENT_GROUPS: readonly QuickTipDepartmentGroup[] = [
+  {
+    label: "디지털커뮤니케이션본부",
+    options: ["디지털커뮤니케이션 1팀", "디지털커뮤니케이션 2팀", "디지털커뮤니케이션 3팀"],
+  },
+  {
+    label: "크리에이티브본부",
+    options: ["크리에이티브 1팀", "크리에이티브 2팀", "크리에이티브 3팀", "크리에이티브 4팀"],
+  },
+  {
+    label: "커뮤니케이션본부",
+    options: ["글로벌커뮤니케이션팀", "테크 커뮤니케이션팀", "마케팅 커뮤니케이션팀", "퓨처 커뮤니케이션팀"],
+  },
+  { label: "미디어부문", options: ["미디어커뮤니케이션"] },
+  {
+    label: "콜라보K",
+    options: ["컨슈머커뮤니케이션팀", "소셜임팩트팀", "브랜드솔루션팀"],
+  },
+  {
+    label: "그 외 본부/실",
+    options: ["KPR Public", "ESG전략실", "경영지원실", "코핸즈", "브라이트벨", "기타"],
+  },
 ] as const;
+
+/** quick-tip-actions.ts의 서버 검증이 쓰는 평탄화된 목록 — 위 그룹 원본
+ * 하나에서 파생시켜서 두 목록이 따로 놀 일이 없게 한다. */
+export const QUICK_TIP_DEPARTMENTS: readonly string[] = QUICK_TIP_DEPARTMENT_GROUPS.flatMap(
+  (g) => g.options
+);
 
 /** GNB "꿀팁 제보하기"의 장소 검색 단계에서 쓰는 가벼운 장소 목록 타입
  * (feed-queries.ts의 getAllPlacesLite()가 이 타입으로 돌려준다). */

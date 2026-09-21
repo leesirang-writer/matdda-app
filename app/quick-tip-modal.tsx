@@ -16,7 +16,7 @@
 import { useMemo, useState, useTransition } from "react";
 import styles from "./quick-tip-modal.module.css";
 import { submitQuickTip } from "./quick-tip-actions";
-import { QUICK_TIP_DEPARTMENTS, type PlaceLite, type VotePurpose } from "./feed-display";
+import { QUICK_TIP_DEPARTMENT_GROUPS, type PlaceLite, type VotePurpose } from "./feed-display";
 
 type SelectedPlace = { id: string; name: string; purpose: VotePurpose };
 
@@ -172,18 +172,27 @@ export function QuickTipModal({
 
                 <div className={styles.section}>
                   <div className={styles.sectionLabel}>2. 어느 소속이세요?</div>
-                  <div className={styles.chipRow}>
-                    {QUICK_TIP_DEPARTMENTS.map((d) => (
-                      <button
-                        type="button"
-                        key={d}
-                        className={department === d ? styles.chipActive : styles.chip}
-                        onClick={() => setDepartment(d)}
-                      >
-                        {d}
-                      </button>
+                  {/* 2026-09-21(21차): 실제 본부/팀 목록으로 교체하면서 20개+
+                      항목이 됨 — 기존 가로 칩(chip) UI는 줄바꿈이 지저분해져서
+                      본부별 <optgroup>으로 묶은 드롭다운으로 바꿈. */}
+                  <select
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className={styles.tipSelect}
+                  >
+                    <option value="" disabled>
+                      본부/팀을 선택해주세요
+                    </option>
+                    {QUICK_TIP_DEPARTMENT_GROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
-                  </div>
+                  </select>
                 </div>
 
                 <div className={styles.section}>

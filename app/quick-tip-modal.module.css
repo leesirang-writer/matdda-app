@@ -96,6 +96,24 @@
   box-sizing: border-box;
 }
 
+/* 2026-09-21(21차): 소속 선택이 칩(chip) → <select>로 바뀌면서 추가.
+   .tipInput과 톤은 맞추되, 네이티브 <select>임을 알 수 있게 커스텀 화살표를
+   붙이고 값이 아직 비어있을 때(placeholder <option>)는 살짝 옅은 색으로. */
+.tipSelect {
+  composes: tipInput;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.tipSelect:invalid {
+  color: var(--text-tertiary);
+}
+
 .searchResults {
   margin-top: 4px;
   border: 1px solid var(--border-subtle);

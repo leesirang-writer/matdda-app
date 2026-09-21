@@ -11,6 +11,14 @@ import {
 } from "./feed-queries";
 import { getWeeklyRanking } from "./ranking-queries";
 
+// 2026-09-21(21차): lib/db.ts의 fetchOptions no-store 설정과 짝을 이루는
+// 안전장치 — 이 페이지 자체도 항상 요청마다 새로 렌더링하도록 명시적으로
+// 고정한다(searchParams를 쓰고 있어서 사실상 이미 동적으로 렌더링되고
+// 있었지만, "혹시 몰라서" 값을 명시적으로 선언해 Vercel/Next 어느 쪽의
+// 캐시 레이어도 이 페이지를 정적/재사용 대상으로 오인하지 않게 함).
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // "전체" 탭은 없앴다 — 축을 누르면 바로 첫 번째(기본) 상황 필터로 들어간다.
 // 2026-09-16(18차): "KPR 90분 밥+카페 페어링"이라는 핵심 컨셉에 집중하기
 // 위해 사이드바 상황 필터를 3개로 대폭 정리했다 — [저녁/회식], [룸/접대]는
@@ -25,10 +33,17 @@ const FOOD_FILTERS: { value: FoodFilter; label: string }[] = [
   { value: "trendy", label: "🌮 힙지로·트렌드" },
 ];
 
+// 2026-09-21(21차): 사이드바에 "전체"(중제목) 아래 소제목 2개만 남기고
+// 싶다는 요청 — 멋따라(카페) 필터를 기존 3개(trendy/remote/quiet)에서
+// 2개(trendy/remote)로 줄임. "☕️ 조용한 힐링"(quiet)은 18차가 dinner/
+// client를 다룰 때와 같은 방식으로 처리한다: UI 선택지에서만 빼고
+// feed-queries.ts의 "quiet" 쿼리 분기·StyleFilter 타입·DB 컬럼(is_quiet)은
+// 그대로 남겨둔다 — 나중에 다시 노출하고 싶어지면 아래 배열에 한 줄만
+// 추가하고 isValidStyleFilter만 되돌리면 된다. "remote" 라벨은 사용자가
+// 준 문구("외근(모바일워킹 등) > 업무관련도 우선")로 교체.
 const STYLE_FILTERS: { value: StyleFilter; label: string }[] = [
   { value: "trendy", label: "✨ 힙플레이스·디저트" },
-  { value: "remote", label: "💻 자유 외근·작업" },
-  { value: "quiet", label: "☕️ 조용한 힐링" },
+  { value: "remote", label: "💻 외근(모바일워킹 등) · 업무관련도 우선" },
 ];
 
 const AXIS_TAB_META: Record<FeedAxis, { label: string; sub: string }> = {
@@ -59,8 +74,11 @@ function isValidAxis(v: string | undefined): v is FeedAxis {
 function isValidFoodFilter(v: string | undefined): v is FoodFilter {
   return v === "lunch" || v === "light" || v === "trendy";
 }
+// 2026-09-21(21차): "quiet"를 사이드바에서 뺐으므로 더 이상 선택 가능한
+// 값이 아니다 — 예전 ?filter=quiet 링크로 들어와도 STYLE_DEFAULT_FILTER
+// (trendy)로 조용히 대체된다(18차의 dinner/client와 동일한 관례).
 function isValidStyleFilter(v: string | undefined): v is StyleFilter {
-  return v === "trendy" || v === "remote" || v === "quiet";
+  return v === "trendy" || v === "remote";
 }
 
 function axisHref(axis: FeedAxis): string {
