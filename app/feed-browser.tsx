@@ -10,7 +10,7 @@
 // 반드시 ./feed-display 에서만 표시용 헬퍼를 가져온다 — ./feed-queries를
 // import하면 lib/db.ts의 neon() 호출이 브라우저 번들에 끼어들어가 즉시 깨진다.
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import styles from "./feed.module.css";
 import {
   displayCategory,
@@ -390,16 +390,50 @@ function FeedCard({
   // 실패하면(끊긴 링크, 네트워크 오류 등) 로컬 fallback으로 한 번만 전환한다.
   const [imgSrc, setImgSrc] = useState(thumbnailFor(place));
 
+  // 2026-09-23(21차-3): "새로고침하면 버튼이 다시 눌려 보여서 또 누르게
+  // 되는" UX 혼란을 막기 위해, 이 브라우저가 이 장소에 이미 반응을 남긴
+  // 적이 있는지 localStorage에서 확인해 초기 상태에 반영한다. 진짜 방어선은
+  // 서버의 quick_vote_guard 테이블이고, 이건 그저 보조 장치일 뿐이라 이
+  // 값이 없거나 못 읽어도(시크릿 모드 등) 기능 자체는 그대로 동작한다.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`mm_voted_${place.id}`);
+      if (saved === "again" || saved === "no") setVoted(saved);
+    } catch {
+      // localStorage를 못 쓰는 환경이면 그냥 매번 새로 누를 수 있게 둔다.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place.id]);
+
   function handleVote(v: "again" | "no") {
     if (voted || pending) return;
     setVoted(v);
     if (v === "again") setAgainCount((n) => n + 1);
     else setNoCount((n) => n + 1);
+    try {
+      localStorage.setItem(`mm_voted_${place.id}`, v);
+    } catch {
+      // 저장 실패해도 무시 — 서버 쪽 quick_vote_guard가 최종 방어선.
+    }
     startTransition(async () => {
-      // 실패해도 화면엔 이미 반영돼 있고, 가벼운 반응 하나 유실되는 것보다
-      // 로딩 상태로 붙잡아두는 게 더 나쁘다고 판단해 결과를 별도로 되돌리지
-      // 않는다 — 다음 새로고침 때 서버 값으로 자연스럽게 맞춰진다.
-      await castQuickVote(place.id, votePurpose, v);
+      const result = await castQuickVote(place.id, votePurpose, v);
+      if (!result.ok && result.alreadyVoted) {
+        // 이 브라우저가 예전에 이미 반응을 남긴 적이 있었다는 뜻(서버
+        // quick_vote_guard 기록) — 방금 낙관적으로 올린 숫자를 되돌리고,
+        // 실제 예전 반응으로 버튼 상태를 맞춘다. 숫자 조작 방지의 핵심.
+        if (v === "again") setAgainCount((n) => Math.max(0, n - 1));
+        else setNoCount((n) => Math.max(0, n - 1));
+        const realVerdict = result.verdict ?? v;
+        setVoted(realVerdict);
+        try {
+          localStorage.setItem(`mm_voted_${place.id}`, realVerdict);
+        } catch {
+          // 무시
+        }
+        return;
+      }
+      // 그 외 실패(네트워크 등)는 기존처럼 조용히 무시 — 가벼운 반응 하나
+      // 유실되는 것보다 로딩 상태로 붙잡아두는 게 더 나쁘다고 판단.
     });
   }
 
